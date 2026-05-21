@@ -114,6 +114,48 @@ setup_cloudflare() {
     fi
 }
 
+# 1.5. Configuração e Hashing da Senha
+echo -e "\n${CYAN}[SEGURANÇA] Configurando senha de acesso para a central...${NC}"
+if [ -f "auth_hash.txt" ]; then
+    echo -e "Uma senha de acesso já está configurada localmente."
+    read -p "Deseja alterar ou remover a senha atual? (s/N): " -n 1 -r CHANGE_PASS
+    echo ""
+    if [[ $CHANGE_PASS =~ ^[Ss]$ ]]; then
+        ASK_PASSWORD=true
+    else
+        ASK_PASSWORD=false
+    fi
+else
+    ASK_PASSWORD=true
+fi
+
+if [ "$ASK_PASSWORD" = true ]; then
+    echo -e "${YELLOW}----------------------------------------------------------------------"
+    echo -e "Defina uma senha para proteger o monitoramento contra acessos não autorizados."
+    echo -e "Essa senha é salva localmente como um hash SHA-256 e validada estritamente"
+    echo -e "no navegador (frontend), mantendo seus feeds e dados completamente protegidos."
+    echo -e "----------------------------------------------------------------------${NC}"
+    
+    # Prompt seguro para leitura de senha (oculta caracteres)
+    read -s -p "Digite a senha de acesso (ou pressione Enter para NENHUMA senha): " USER_PASS
+    echo ""
+    
+    if [ -n "$USER_PASS" ]; then
+        # Gerar hash SHA-256 de forma nativa e sem pular linhas
+        if command_exists shasum; then
+            echo -n "$USER_PASS" | shasum -a 256 | awk '{print $1}' | tr -d '\n' > auth_hash.txt
+        elif command_exists sha256sum; then
+            echo -n "$USER_PASS" | sha256sum | awk '{print $1}' | tr -d '\n' > auth_hash.txt
+        else
+            python3 -c "import hashlib; print(hashlib.sha256(b'$USER_PASS').hexdigest(), end='')" > auth_hash.txt
+        fi
+        echo -e "${GREEN}[OK] Senha de acesso configurada e salva com sucesso em 'auth_hash.txt'!${NC}\n"
+    else
+        rm -f auth_hash.txt
+        echo -e "${RED}[AVISO] Nenhuma senha definida. A central estará livre para acesso público!${NC}\n"
+    fi
+fi
+
 # 2. Iniciar o Backend Python
 echo -e "${CYAN}[BACKEND] Iniciando servidor de mídia na porta 5001...${NC}"
 if [ -f "venv/bin/python" ]; then

@@ -10,6 +10,14 @@ export default function Home() {
   const [refreshKeys, setRefreshKeys] = useState({});
   const [activeAudios, setActiveAudios] = useState({});
 
+  // Authentication States
+  const [isAuthenticated, setIsAuthenticated] = useState(true); // Default true to avoid flash of lock screen
+  const [passwordRequired, setPasswordRequired] = useState(false);
+  const [correctHash, setCorrectHash] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [authError, setAuthError] = useState(false);
+  const [isShaking, setIsShaking] = useState(false);
+
   const [layoutMode, setLayoutMode] = useState("grid"); // "grid" or "list"
   const [fullscreenCamera, setFullscreenCamera] = useState(null); // null, "138", "139", "usb_0", "usb_1", "usb_2"
   const [logs, setLogs] = useState([]);
@@ -48,6 +56,61 @@ export default function Home() {
   useEffect(() => {
     addLog("Buscando conexão com o servidor de streaming...", "info");
   }, []);
+
+  // Check auth status on mount
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        const response = await fetch("/auth/status");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.password_required) {
+            setPasswordRequired(true);
+            setCorrectHash(data.hash);
+            // Verify if already unlocked in this session
+            const savedUnlock = sessionStorage.getItem("ip_camera_hub_unlocked");
+            if (savedUnlock === data.hash) {
+              setIsAuthenticated(true);
+            } else {
+              setIsAuthenticated(false);
+            }
+          } else {
+            setIsAuthenticated(true);
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao verificar autenticação:", err);
+      }
+    };
+    checkAuthStatus();
+  }, []);
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (!passwordInput) return;
+
+    try {
+      // Compute SHA-256 hash using Web Crypto API
+      const msgUint8 = new TextEncoder().encode(passwordInput);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+      if (hashHex === correctHash) {
+        sessionStorage.setItem("ip_camera_hub_unlocked", correctHash);
+        setIsAuthenticated(true);
+        setAuthError(false);
+        addLog("Autenticação realizada com sucesso!", "success");
+      } else {
+        setAuthError(true);
+        setIsShaking(true);
+        addLog("Falha na tentativa de login: senha incorreta.", "error");
+        setTimeout(() => setIsShaking(false), 500); // Reset shake animation
+      }
+    } catch (err) {
+      console.error("Erro ao processar hash:", err);
+    }
+  };
 
   // Poll status from python server
   useEffect(() => {
@@ -310,6 +373,185 @@ export default function Home() {
       if (!a.isUsb && b.isUsb) return 1;
       return a.id.localeCompare(b.id, undefined, { numeric: true });
     });
+
+  if (!isAuthenticated) {
+    return (
+      <div className="lock-screen-wrapper">
+        <style>{`
+          .lock-screen-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+            font-family: 'Outfit', 'Inter', sans-serif;
+            color: #f8fafc;
+            padding: 20px;
+          }
+          .lock-card {
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 420px;
+            padding: 40px 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 50px rgba(6, 182, 212, 0.05);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+          }
+          .lock-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #06b6d4, #8b5cf6);
+          }
+          .lock-icon-container {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 70px;
+            height: 70px;
+            background: rgba(6, 182, 212, 0.1);
+            border: 1px solid rgba(6, 182, 212, 0.2);
+            border-radius: 50%;
+            color: #06b6d4;
+            margin-bottom: 25px;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.1);
+          }
+          .lock-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+          }
+          .lock-subtitle {
+            font-size: 0.875rem;
+            color: #94a3b8;
+            line-height: 1.5;
+            margin-bottom: 30px;
+          }
+          .lock-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+          }
+          .input-group {
+            position: relative;
+          }
+          .lock-input {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 14px 16px;
+            font-size: 1rem;
+            color: #ffffff;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            text-align: center;
+            letter-spacing: 0.2em;
+          }
+          .lock-input:focus {
+            outline: none;
+            border-color: #06b6d4;
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15), 0 0 15px rgba(6, 182, 212, 0.1);
+            background: rgba(15, 23, 42, 0.95);
+          }
+          .lock-button {
+            background: linear-gradient(90deg, #06b6d4, #0891b2);
+            color: #ffffff;
+            border: none;
+            border-radius: 12px;
+            padding: 14px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
+          }
+          .lock-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(6, 182, 212, 0.35), 0 0 15px rgba(6, 182, 212, 0.2);
+            background: linear-gradient(90deg, #0891b2, #06b6d4);
+          }
+          .lock-button:active {
+            transform: translateY(1px);
+          }
+          .error-message {
+            color: #f43f5e;
+            font-size: 0.825rem;
+            font-weight: 500;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            animation: fadeIn 0.2s ease;
+          }
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          .shake {
+            animation: shake 0.4s ease-in-out;
+          }
+          @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+          }
+        `}</style>
+
+        <div className={`lock-card ${isShaking ? "shake" : ""}`}>
+          <div className="lock-icon-container">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+          <h2 className="lock-title">IP Camera Hub</h2>
+          <p className="lock-subtitle">
+            Este painel de monitoramento está protegido.<br />
+            Insira a senha de acesso para continuar.
+          </p>
+          <form className="lock-form" onSubmit={handlePasswordSubmit}>
+            <div className="input-group">
+              <input
+                type="password"
+                className="lock-input"
+                placeholder="••••••"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                autoFocus
+              />
+            </div>
+            {authError && (
+              <div className="error-message">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                Senha incorreta! Tente novamente.
+              </div>
+            )}
+            <button type="submit" className="lock-button">
+              Desbloquear Central
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-wrapper">

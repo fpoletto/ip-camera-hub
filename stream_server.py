@@ -499,6 +499,21 @@ def stream_audio(camera_id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/auth/status')
+def auth_status():
+    import os
+    hash_file = "auth_hash.txt"
+    if os.path.exists(hash_file):
+        try:
+            with open(hash_file, "r") as f:
+                pwd_hash = f.read().strip()
+            if pwd_hash:
+                return jsonify({"password_required": True, "hash": pwd_hash})
+        except Exception as e:
+            print(f"[AUTH ERROR] Failed to read {hash_file}: {e}")
+    return jsonify({"password_required": False})
+
+
 @app.route('/health')
 def health():
     return jsonify({"status": "ok", "timestamp": time.time()})

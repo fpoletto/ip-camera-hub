@@ -40,6 +40,9 @@ backend.log
 frontend.log
 cloudflare.log
 
+# Private local configuration (passwords/auth)
+auth_hash.txt
+
 # Camera frame captures and cache
 camera_frame.jpg
 capture_*.jpg

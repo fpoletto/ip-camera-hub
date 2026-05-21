@@ -7,6 +7,10 @@ const nextConfig = {
         destination: 'http://127.0.0.1:5001/status',
       },
       {
+        source: '/auth/:path*',
+        destination: 'http://127.0.0.1:5001/auth/:path*',
+      },
+      {
         source: '/stream/:path*',
         destination: 'http://127.0.0.1:5001/stream/:path*',
       },
