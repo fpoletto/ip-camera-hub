@@ -1,0 +1,1157 @@
+Device Name
+
+Download Speed Upload Speed IP Address
+
+MAC Address
+
+Online Time
+
+Download Limit Upload Limit Proprietários
+
+aparelhos
+
+iPhone
+
+iPhone
+
+Rafael
+
+0 Kbps
+
+48 Kbps
+
+0 Kbps
+
+0 Kbps
+
+192.168.4.45
+
+A6:E3:09:57:16:62
+
+0 days 0 hours 19 minutes 2000Kbps
+
+2000Kbps
+
+1.73 Mbps
+
+192.168.4.15
+
+5E:5D:D5:56:40:50
+
+0 days 0 hours 11 minutes 2000Kbps
+
+2000Kbps
+
+0 Kbps
+
+192.168.4.84
+
+E8:6F:38:E0:76:D7
+
+0 days 0 hours 39 minutes 2000Kbps
+
+2000Kbps
+
+DESKTOP-DOI93EA
+
+24 Kbps
+
+24 Kbps
+
+192.168.4.53
+
+A4:34:D9:86:AE:6B 0 days 0 hours 45 minutes 2000Kbps
+
+2000Kbps
+
+iPhone
+
+iPhone
+
+M2007J17G
+
+iPhone
+
+iPad
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+192.168.4.56
+
+0E:4F:55:C2:33:C9
+
+0 days 0 hours 43 minutes 2000Kbps
+
+2000Kbps
+
+192.168.4.61
+
+AE:3D:70:A9:B2:1E
+
+0 days 0 hours 48 minutes 2000Kbps
+
+2000Kbps
+
+192.168.4.7
+
+72:5B:95:75:DD:97
+
+0 days 0 hours 51 minutes 2000Kbps
+
+2000Kbps
+
+192.168.4.15
+
+5E:5D:D5:56:40:50
+
+0 days 0 hours 12 minutes 2000Kbps
+
+2000Kbps
+
+16 Kbps
+
+1.86 Mbps
+
+192.168.4.55
+
+A6:D7:1D:11:9C:94
+
+0 days 0 hours 50 minutes 2000Kbps
+
+2000Kbps
+
+MSPPA2020021809
+
+8 Kbps
+
+24 Kbps
+
+192.168.4.58
+
+48:89:E7:FF:59:97
+
+0 days 0 hours 50 minutes 2000Kbps
+
+2000Kbps
+
+DE-A4-BF-AA-E6-15
+
+32 Kbps
+
+1.11 Mbps
+
+192.168.4.59
+
+DE:A4:BF:AA:E6:15
+
+0 days 0 hours 50 minutes 2000Kbps
+
+2000Kbps
+
+DESKTOP-U81BK9I-VAIO 0 Kbps
+
+daten-32g-desktop
+
+16 Kbps
+
+Xiaomi-13-Lite
+
+MacBookPro
+
+M2007J17G
+
+M2007J17G
+
+M2007J17G
+
+PRFIG2022024134
+
+MacBookPro
+
+DESKTOP-U81BK9I
+
+MBP-de-Fabio
+
+espressif
+
+iPhone
+
+PFFIG2014045003
+
+iPhone
+
+0 Kbps
+
+8 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+8 Kbps
+
+0 Kbps
+
+192.168.4.4
+
+4C:49:6C:EA:94:EE
+
+0 days 0 hours 39 minutes Unlimited
+
+Unlimited
+
+192.168.4.5
+
+00:D7:6D:2E:99:4C 0 days 0 hours 51 minutes Unlimited
+
+Unlimited
+
+192.168.4.38
+
+5A:DC:A1:E9:3E:ED 0 days 0 hours 51 minutes Unlimited
+
+Unlimited
+
+24 Kbps
+
+192.168.4.89
+
+B2:B1:4A:8A:5E:A0
+
+0 days 0 hours 51 minutes Unlimited
+
+Unlimited
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+192.168.3.2
+
+DE:54:5B:A6:21:C2
+
+unknown
+
+Unlimited
+
+Unlimited
+
+192.168.3.3
+
+0E:8B:A9:63:68:E6
+
+unknown
+
+Unlimited
+
+Unlimited
+
+192.168.3.4
+
+96:8C:5A:4A:CB:1E unknown
+
+Unlimited
+
+Unlimited
+
+192.168.4.9
+
+00:D7:6D:2E:E3:84
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.3
+
+BE:24:04:AC:B2:EC 2025-07-09 14:13
+
+2000Kbps
+
+2000Kbps
+
+192.168.4.6
+
+50:A1:32:4A:5C:1B 2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.32
+
+F8:E4:3B:A2:D6:C0
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.12
+
+E4:65:B8:49:3B:44
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.13
+
+1E:0C:7D:48:29:69
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.14
+
+5C:51:4F:57:B7:69
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.16
+
+7E:60:46:0F:F1:0B
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+1
+
+megalos
+
+M2101K7BG
+
+DESKTOP-TCICF58
+
+MBP-de-Fabio
+
+Watch
+
+Redmi-Note-11
+
+Watch
+
+D6-B1-81-DE-D9-1C
+
+orangepipc
+
+orangepipc
+
+Watch
+
+PRFIG2021032204
+
+VAIO-RONALD
+
+Watch
+
+Watch
+
+Watch
+
+Watch
+
+Watch
+
+0A-0A-79-85-E1-90
+
+Watch
+
+Watch
+
+PRFIG2022036394
+
+Watch
+
+Galaxy-Tab-A9-5G
+
+02-C3-D1-AE-F2-C8
+
+PAATM2019039657
+
+dhcpcd-6.8.2-armv7l
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+DESKTOP-R7D2QEH
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+192.168.4.100 E8:94:F6:25:76:DE
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.18
+
+92:B7:26:07:F3:E8
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.19
+
+D0:C6:37:FE:55:51
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.20
+
+BC:D0:74:0E:6F:88
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.21
+
+C6:F7:06:06:7B:7D 2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.24
+
+A2:15:9E:76:06:3D
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.25
+
+7A:00:48:23:ED:1F
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.30
+
+D6:B1:81:DE:D9:1C 2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.35
+
+02:81:19:39:51:F9
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.35
+
+02:81:19:39:51:F9
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.35
+
+3E:BD:E2:31:35:7E
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.36
+
+38:FC:98:23:B7:11
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.37
+
+4C:49:6C:EB:14:55
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.39
+
+AE:11:29:61:40:70
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.40
+
+5E:A0:88:B5:DA:BB 2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.41
+
+5A:D8:20:9E:A7:59
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.42
+
+4E:93:CC:F9:51:4D 2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.44
+
+E2:1B:BA:52:C5:B6
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.43
+
+0A:0A:79:85:E1:90
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.47
+
+62:68:97:61:52:32
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.48
+
+46:87:00:DF:71:97
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.49
+
+BC:F1:71:3E:0A:EE
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.51
+
+42:89:E3:FF:91:06
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.54
+
+16:2B:5D:E1:C6:C0
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.57
+
+02:C3:D1:AE:F2:C8
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.60
+
+50:76:AF:30:22:9E
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.62
+
+F4:F5:D8:31:6C:32
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.63
+
+00:D7:6D:2E:E6:36
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+2
+
+76-0F-8E-48-62-9E
+
+Watch
+
+Watch
+
+PRGIA2020027304
+
+2E-C8-01-FF-86-59
+
+Watch
+
+Watch
+
+mytp
+
+46-B9-18-00-16-A9
+
+DESKTOP-1QHT9SB
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+DESKTOP-D8DHAVM
+
+0 Kbps
+
+46-93-45-A8-2D-EE
+
+56-DD-E1-24-C6-C6
+
+C6-F4-EC-26-C6-52
+
+Watch
+
+Watch
+
+PRFIG2022024261
+
+Mac
+
+Watch
+
+Ronalds-MBP
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+HUAWEI WiFi Mesh 2
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+0 Kbps
+
+192.168.4.64
+
+76:0F:8E:48:62:9E
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.65
+
+2A:51:CD:EF:7E:23
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.66
+
+32:76:73:7D:85:8E
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.67
+
+48:89:E7:FC:04:FE
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.69
+
+2E:C8:01:FF:86:59
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.70
+
+42:18:EF:55:AB:7D 2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.71
+
+CA:BC:D6:D2:FE:E5 2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.72
+
+98:2C:BC:00:0F:1E
+
+2025-07-09 14:14
+
+Unlimited
+
+Unlimited
+
+192.168.4.73
+
+46:B9:18:00:16:A9
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.74
+
+4C:49:6C:EB:14:37
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.77
+
+4C:49:6C:EB:14:32
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.78
+
+46:93:45:A8:2D:EE
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.79
+
+56:DD:E1:24:C6:C6
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.80
+
+C6:F4:EC:26:C6:52
+
+2025-07-09 14:13
+
+1000Kbps
+
+1200Kbps
+
+192.168.4.81
+
+EE:3A:49:1D:A5:C3
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.82
+
+3A:7A:64:BE:A7:0C 2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.83
+
+00:D7:6D:2E:E6:BD 2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.85
+
+AE:04:BB:C7:99:07
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.86
+
+22:06:14:8A:00:90
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.88
+
+6C:7E:67:CA:2B:96
+
+2025-07-09 14:13
+
+Unlimited
+
+Unlimited
+
+192.168.4.2
+
+18:9E:2C:C6:B0:21
+
+2025-07-09 14:13
+
+4000Kbps
+
+4000Kbps
+
+3
+
+

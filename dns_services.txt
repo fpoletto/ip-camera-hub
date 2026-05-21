@@ -1,0 +1,8 @@
+Browsing for _services._dns-sd._udp
+DATE: ---Wed 20 May 2026---
+10:20:22.452  ...STARTING...
+Timestamp     A/R    Flags  if Domain               Service Type         Instance Name
+10:20:22.453  Add        3   1 .                    _udp.local.          _asquic
+10:20:22.453  Add        3   1 .                    _tcp.local.          _companion-link
+10:20:22.453  Add        3  14 .                    _udp.local.          _asquic
+10:20:22.453  Add        2  14 .                    _tcp.local.          _companion-link
