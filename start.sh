@@ -34,8 +34,14 @@ setup_cloudflare() {
     mkdir -p .bin
     CLOUDFLARED_BIN="./.bin/cloudflared"
 
+    # Se o arquivo local existe mas está corrompido ou contém "Not Found" de um download mal sucedido
     if [ -f "$CLOUDFLARED_BIN" ]; then
-        return 0
+        if grep -q "Not Found" "$CLOUDFLARED_BIN" 2>/dev/null || [ ! -s "$CLOUDFLARED_BIN" ]; then
+            echo -e "${YELLOW}[TÚNEL] Arquivo local do cloudflared está corrompido. Removendo para baixar novamente...${NC}"
+            rm -f "$CLOUDFLARED_BIN"
+        else
+            return 0
+        fi
     fi
 
     echo -e "${YELLOW}[TÚNEL] cloudflared não está instalado globalmente. Baixando binário standalone oficial...${NC}"
@@ -43,10 +49,17 @@ setup_cloudflare() {
     OS_TYPE="$(uname -s)"
     ARCH_TYPE="$(uname -m)"
     DOWNLOAD_URL=""
+    IS_TGZ=false
     
     if [ "$OS_TYPE" = "Darwin" ]; then
-        # Binário macOS (funciona em Intel e Apple Silicon)
-        DOWNLOAD_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-amd64"
+        IS_TGZ=true
+        if [ "$ARCH_TYPE" = "arm64" ] || [ "$ARCH_TYPE" = "aarch64" ]; then
+            # Binário macOS nativo para Apple Silicon
+            DOWNLOAD_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-arm64.tgz"
+        else
+            # Binário macOS nativo para Intel
+            DOWNLOAD_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-amd64.tgz"
+        fi
     elif [ "$OS_TYPE" = "Linux" ]; then
         if [ "$ARCH_TYPE" = "x86_64" ]; then
             DOWNLOAD_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"
@@ -59,12 +72,44 @@ setup_cloudflare() {
 
     if [ -n "$DOWNLOAD_URL" ]; then
         echo -e "Baixando: $DOWNLOAD_URL"
-        curl -L -o "$CLOUDFLARED_BIN" "$DOWNLOAD_URL"
-        chmod +x "$CLOUDFLARED_BIN"
-        echo -e "${GREEN}[OK] cloudflared baixado localmente em .bin/!${NC}"
-        return 0
+        if [ "$IS_TGZ" = true ]; then
+            # Baixar o tarball comprimido para macOS
+            curl -L -o ".bin/cloudflared.tgz" "$DOWNLOAD_URL"
+            if [ -f ".bin/cloudflared.tgz" ]; then
+                if grep -q "Not Found" ".bin/cloudflared.tgz" 2>/dev/null; then
+                    echo -e "${RED}[ERRO] Falha ao baixar o cloudflared (URL retornou 404).${NC}"
+                    rm -f ".bin/cloudflared.tgz"
+                    return 1
+                fi
+                # Extrair o binário 'cloudflared' do tarball para dentro de .bin/
+                tar -xzf ".bin/cloudflared.tgz" -C .bin/ 2>/dev/null
+                rm -f ".bin/cloudflared.tgz"
+                if [ -f "$CLOUDFLARED_BIN" ]; then
+                    chmod +x "$CLOUDFLARED_BIN"
+                    echo -e "${GREEN}[OK] cloudflared baixado e extraído com sucesso em .bin/!${NC}"
+                    return 0
+                else
+                    echo -e "${RED}[ERRO] O arquivo tarball baixado não continha o binário 'cloudflared'.${NC}"
+                    return 1
+                fi
+            else
+                echo -e "${RED}[ERRO] Falha ao efetuar download do arquivo comprimido do cloudflared.${NC}"
+                return 1
+            fi
+        else
+            # Baixar binário direto para Linux
+            curl -L -o "$CLOUDFLARED_BIN" "$DOWNLOAD_URL"
+            if grep -q "Not Found" "$CLOUDFLARED_BIN" 2>/dev/null; then
+                echo -e "${RED}[ERRO] Falha ao baixar o cloudflared (URL retornou 404).${NC}"
+                rm -f "$CLOUDFLARED_BIN"
+                return 1
+            fi
+            chmod +x "$CLOUDFLARED_BIN"
+            echo -e "${GREEN}[OK] cloudflared baixado localmente em .bin/!${NC}"
+            return 0
+        fi
     else
-        echo -e "${RED}[AVISO] Arquitetura de OS não reconhecida para download do cloudflared.${NC}"
+        echo -e "${RED}[AVISO] Arquitetura de OS ou plataforma não reconhecida para download automático do cloudflared.${NC}"
         return 1
     fi
 }
