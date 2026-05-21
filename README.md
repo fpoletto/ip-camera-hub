@@ -37,17 +37,17 @@ Esta central foi projetada com foco em **extrema facilidade de uso** (instalaç�
 
 ```mermaid
 graph TD
-    subgraph Dispositivos
+    subgraph Devices ["Dispositivos"]
         CamIP[Câmeras IP locais - 192.168.x.x] -->|RTSP over TCP| Backend[Backend de Mídia - Flask/OpenCV]
         Webcams[Webcams USB locais - AVFoundation] -->|Captura de Frame / Áudio| Backend
     end
     
-    subgraph Localhost (Single Port 3000)
+    subgraph Localhost ["Localhost (Porta Única 3000)"]
         Backend -->|Porta 5001 Privada| NextConfig[Next.js Reverse Proxy]
         NextConfig -->|Porta 3000 Pública| NextUI[Interface Dashboard Next.js]
     end
     
-    subgraph Acesso Remoto
+    subgraph RemoteAccess ["Acesso Remoto"]
         NextUI -->|Porta 3000| Cloudflare[Cloudflare Quick Tunnel]
         Cloudflare -->|Canal HTTPS Seguro| RemoteUser[Celular / PC Externo]
     end
