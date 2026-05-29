@@ -1,0 +1,16 @@
+streams:
+  camera_usb_0:
+    - exec:ffmpeg -fflags nobuffer -flags low_delay -i http://127.0.0.1:5001/stream/usb_0/main -c:v h264_videotoolbox -pix_fmt yuv420p -realtime 1 -f mpegts pipe:1
+  camera_usb_1:
+    - exec:ffmpeg -fflags nobuffer -flags low_delay -i http://127.0.0.1:5001/stream/usb_1/main -c:v h264_videotoolbox -pix_fmt yuv420p -realtime 1 -f mpegts pipe:1
+  camera_usb_2:
+    - exec:ffmpeg -fflags nobuffer -flags low_delay -i http://127.0.0.1:5001/stream/usb_2/main -c:v h264_videotoolbox -pix_fmt yuv420p -realtime 1 -f mpegts pipe:1
+
+api:
+  listen: :1984
+  origin: "*"
+
+webrtc:
+  listen: :8555
+  candidates:
+    - stun:stun.l.google.com:19302

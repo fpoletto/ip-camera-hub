@@ -4,7 +4,7 @@ import threading
 import cv2
 import urllib.request
 import subprocess
-from flask import Flask, Response, jsonify, send_file
+from flask import Flask, Response, jsonify, send_file, request
 from flask_cors import CORS
 import io
 
@@ -36,6 +36,7 @@ class CameraStreamer:
         self.frame_count = 0
         self.fps_real = 0.0
         self.last_fps_check = time.time()
+        self.raw_frame = None
 
     def start(self):
         if self.started:
@@ -61,6 +62,9 @@ class CameraStreamer:
                 time.sleep(2)
                 continue
 
+            # Set VideoCapture buffer size to prevent old frame accumulation
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+
             with self.lock:
                 self.connected = True
                 self.width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -72,23 +76,26 @@ class CameraStreamer:
             self.frame_count = 0
             self.last_fps_check = time.time()
 
+            consecutive_failures = 0
             while self.started:
                 ret, frame = cap.read()
                 if not ret:
-                    print(f"[STREAMER-{self.name}] Frame capture failed or stream disconnected.")
-                    with self.lock:
-                        self.connected = False
-                        self.error_message = "USB sinal perdido" if self.is_usb else "Sinal perdido"
-                    break
+                    consecutive_failures += 1
+                    if consecutive_failures >= 10:
+                        print(f"[STREAMER-{self.name}] Frame capture failed consecutively {consecutive_failures} times. Disconnecting.")
+                        with self.lock:
+                            self.connected = False
+                            self.error_message = "USB sinal perdido" if self.is_usb else "Sinal perdido"
+                        break
+                    time.sleep(0.01)
+                    continue
 
-                # Encode frame to JPEG format
-                ret, jpeg = cv2.imencode('.jpg', frame)
-                if ret:
-                    with self.lock:
-                        self.frame = jpeg.tobytes()
-                        self.connected = True
-                        self.error_message = ""
-                        self.frame_count += 1
+                consecutive_failures = 0
+                with self.lock:
+                    self.raw_frame = frame
+                    self.connected = True
+                    self.error_message = ""
+                    self.frame_count += 1
 
                 # Calculate real-time FPS
                 now = time.time()
@@ -107,7 +114,15 @@ class CameraStreamer:
 
     def get_frame(self):
         with self.lock:
-            return self.frame, self.connected
+            if self.raw_frame is not None:
+                ret, jpeg = cv2.imencode('.jpg', self.raw_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+                if ret:
+                    return jpeg.tobytes(), self.connected
+            return None, self.connected
+
+    def get_raw_frame(self):
+        with self.lock:
+            return self.raw_frame, self.connected
 
     def get_status(self):
         with self.lock:
@@ -160,7 +175,7 @@ def get_local_subnet():
 def discover_usb_cameras():
     """
     Varre os slots USB de 0 a 7 tentando abrir um VideoCapture com o OpenCV.
-    Retorna uma lista dos índices dos dispositivos disponíveis.
+    Retorna uma lista dos índices dos dispositivos disponíveis que conseguem fornecer frames.
     """
     print("[DISCOVERY-USB] Iniciando varredura por webcams USB (Slots 0 a 7)...")
     active_slots = []
@@ -170,13 +185,11 @@ def discover_usb_cameras():
         if cap.isOpened():
             ret, frame = cap.read()
             if ret:
-                print(f" -> [DISCOVERY-USB] Webcam detectada no Slot {index}!")
+                print(f" -> [DISCOVERY-USB] Webcam ativa e funcional detectada no Slot {index}!")
                 active_slots.append(index)
             else:
-                # O slot abriu mas não retornou frame (pode estar em uso ou ocupado)
-                # No macOS, consideramos conectada se o cap abriu.
-                print(f" -> [DISCOVERY-USB] Slot {index} abriu com sucesso (mas falhou ao capturar frame - presumindo ativa).")
-                active_slots.append(index)
+                # O slot abriu mas não retornou frame (geralmente stubs virtuais de software ou FaceTime inativo no macOS)
+                print(f" -> [DISCOVERY-USB] Slot {index} abriu, mas falhou ao capturar frame (dispositivo fantasma/inativo). Ignorando.")
             cap.release()
     print(f"[DISCOVERY-USB] Varredura USB concluída. Slots encontrados: {active_slots}")
     return active_slots
@@ -237,6 +250,16 @@ active_usb_indices = discover_usb_cameras()
 # 2. Varredura IP Imediatamente Depois
 active_ip_addresses = discover_ip_cameras(subnet_prefix)
 
+# Salvar cache de discovery para uso do go2rtc
+import json
+discovery_data = {
+    "ip_cameras": active_ip_addresses,
+    "usb_cameras": active_usb_indices
+}
+with open("discovery_cache.json", "w") as f:
+    json.dump(discovery_data, f)
+print(f"[DISCOVERY] Cache salvo em discovery_cache.json")
+
 # Construir os streamers dinamicamente
 streamers = {}
 
@@ -265,20 +288,64 @@ for streamer in streamers.values():
 
 
 
-def generate_mjpeg_feed(streamer_key):
+def generate_mjpeg_feed(streamer_key, width=None, height=None, target_fps=None, quality=80, bufsize=2):
     streamer = streamers.get(streamer_key)
     if not streamer:
         return
     
-    print(f"[FEED] Client connected to: {streamer_key}")
+    print(f"[FEED] Client connected to: {streamer_key} with params: width={width}, height={height}, fps={target_fps}, quality={quality}, bufsize={bufsize}", flush=True)
+    
+    last_frame_time = time.time()
+    frame_interval = 1.0 / target_fps if target_fps else 0.033  # default ~30 FPS
+    consecutive_errors = 0
+    client_frame_count = 0
+    
     while True:
-        frame, connected = streamer.get_frame()
-        if connected and frame is not None:
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-            # Rate limit the client stream to prevent browser tab choking
-            time.sleep(0.03)
-        else:
+        try:
+            raw_frame, connected = streamer.get_raw_frame()
+            if connected and raw_frame is not None:
+                # 1. Apply resolution scale if parameters are provided and valid
+                processed_frame = raw_frame
+                raw_h, raw_w = raw_frame.shape[:2]
+                
+                try:
+                    if width and height and (width != raw_w or height != raw_h):
+                        processed_frame = cv2.resize(raw_frame, (width, height), interpolation=cv2.INTER_AREA)
+                except Exception as resize_err:
+                    print(f"[FEED-{streamer_key}] Error during cv2.resize: {resize_err}", flush=True)
+                    processed_frame = raw_frame
+                
+                # Periodic debug log per client stream connection
+                client_frame_count += 1
+                if client_frame_count % 30 == 0:
+                    proc_h, proc_w = processed_frame.shape[:2]
+                    print(f"[FEED-DEBUG-{streamer_key}] Target: {width}x{height}, Raw Shape: ({raw_h}, {raw_w}), Processed Shape: ({proc_h}, {proc_w}), Quality: {quality}, FPS: {target_fps}", flush=True)
+                    
+                # 2. Encode to JPEG with specified quality
+                ret, jpeg = cv2.imencode('.jpg', processed_frame, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+                if ret:
+                    frame_bytes = jpeg.tobytes()
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                
+                # 3. Dynamic Rate Limiting (FPS Throttling)
+                now = time.time()
+                elapsed = now - last_frame_time
+                sleep_time = max(0.001, frame_interval - elapsed)
+                time.sleep(sleep_time)
+                last_frame_time = time.time()
+                consecutive_errors = 0
+            else:
+                time.sleep(0.1)
+        except GeneratorExit:
+            print(f"[FEED] Client disconnected from: {streamer_key}", flush=True)
+            break
+        except Exception as e:
+            consecutive_errors += 1
+            print(f"[FEED ERROR] Error in stream loop for {streamer_key}: {e}", flush=True)
+            if consecutive_errors > 20:
+                print(f"[FEED] Terminating stream {streamer_key} due to too many errors.", flush=True)
+                break
             time.sleep(0.1)
 
 
@@ -354,9 +421,19 @@ def stream_video(camera_id, profile):
     streamer_key = f"{camera_id}_{profile}"
     if streamer_key not in streamers:
         return "Camera or profile not found", 404
+    
+    # Read query parameters
+    width = request.args.get('width', default=None, type=int)
+    height = request.args.get('height', default=None, type=int)
+    fps = request.args.get('fps', default=None, type=int)
+    quality = request.args.get('quality', default=80, type=int)
+    bufsize = request.args.get('bufsize', default=2, type=int)
+    
+    # Normalize quality
+    quality = max(10, min(100, quality))
         
     return Response(
-        generate_mjpeg_feed(streamer_key),
+        generate_mjpeg_feed(streamer_key, width=width, height=height, target_fps=fps, quality=quality, bufsize=bufsize),
         mimetype='multipart/x-mixed-replace; boundary=frame'
     )
 
@@ -517,6 +594,17 @@ def auth_status():
 @app.route('/health')
 def health():
     return jsonify({"status": "ok", "timestamp": time.time()})
+
+
+@app.route('/discovery')
+def get_discovery():
+    """Retorna a lista de câmeras IP e USB descobertas na inicialização."""
+    return jsonify({
+        "ip_cameras": active_ip_addresses,
+        "usb_cameras": active_usb_indices,
+        "subnet": subnet_prefix,
+        "local_ip": local_ip_full
+    })
 
 
 if __name__ == '__main__':

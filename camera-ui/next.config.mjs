@@ -26,6 +26,18 @@ const nextConfig = {
         source: '/audio/:path*',
         destination: 'http://127.0.0.1:5001/audio/:path*',
       },
+      {
+        source: '/discovery',
+        destination: 'http://127.0.0.1:5001/discovery',
+      },
+      {
+        source: '/health',
+        destination: 'http://127.0.0.1:5001/health',
+      },
+      {
+        source: '/go2rtc/:path*',
+        destination: 'http://127.0.0.1:1984/:path*',
+      },
     ];
   },
 };

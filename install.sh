@@ -121,6 +121,58 @@ fi
 
 echo -e "${GREEN}[OK] Interface Next.js compilada e pronta para produção!${NC}"
 
+# 4.5 Download do binário autônomo do go2rtc
+echo -e "\n${CYAN}[GO2RTC] Verificando e instalando proxy de streaming go2rtc...${NC}"
+mkdir -p .bin
+
+GO2RTC_BIN=".bin/go2rtc"
+if [ -f "$GO2RTC_BIN" ]; then
+    echo -e "go2rtc já instalado localmente em .bin/go2rtc"
+else
+    ARCH_TYPE="$(uname -m)"
+    OS_TYPE="$(uname -s)"
+    GO2RTC_URL=""
+    
+    if [ "$OS_TYPE" = "Darwin" ]; then
+        if [ "$ARCH_TYPE" = "arm64" ] || [ "$ARCH_TYPE" = "aarch64" ]; then
+            GO2RTC_URL="https://github.com/AlexxIT/go2rtc/releases/latest/download/go2rtc_mac_arm64.zip"
+        else
+            GO2RTC_URL="https://github.com/AlexxIT/go2rtc/releases/latest/download/go2rtc_mac_amd64.zip"
+        fi
+    elif [ "$OS_TYPE" = "Linux" ]; then
+        if [ "$ARCH_TYPE" = "x86_64" ]; then
+            GO2RTC_URL="https://github.com/AlexxIT/go2rtc/releases/latest/download/go2rtc_linux_amd64"
+        elif [ "$ARCH_TYPE" = "aarch64" ] || [ "$ARCH_TYPE" = "arm64" ]; then
+            GO2RTC_URL="https://github.com/AlexxIT/go2rtc/releases/latest/download/go2rtc_linux_arm64"
+        fi
+    fi
+    
+    if [ -n "$GO2RTC_URL" ]; then
+        echo -e "Baixando go2rtc de: $GO2RTC_URL"
+        if [[ "$GO2RTC_URL" == *.zip ]]; then
+            curl -L -o ".bin/go2rtc.zip" "$GO2RTC_URL"
+            if [ -f ".bin/go2rtc.zip" ]; then
+                unzip -o ".bin/go2rtc.zip" -d .bin >/dev/null 2>&1
+                rm -f ".bin/go2rtc.zip"
+                chmod +x "$GO2RTC_BIN"
+                echo -e "${GREEN}[OK] go2rtc instalado com sucesso!${NC}"
+            else
+                echo -e "${RED}[ERRO] Falha ao baixar zip do go2rtc.${NC}"
+            fi
+        else
+            curl -L -o "$GO2RTC_BIN" "$GO2RTC_URL"
+            if [ -f "$GO2RTC_BIN" ]; then
+                chmod +x "$GO2RTC_BIN"
+                echo -e "${GREEN}[OK] go2rtc instalado com sucesso!${NC}"
+            else
+                echo -e "${RED}[ERRO] Falha ao baixar binário do go2rtc.${NC}"
+            fi
+        fi
+    else
+        echo -e "${RED}[AVISO] Arquitetura de OS ou plataforma não reconhecida para download do go2rtc.${NC}"
+    fi
+fi
+
 # 5. Garantir permissões de execução para start.sh
 if [ -f "start.sh" ]; then
     chmod +x start.sh

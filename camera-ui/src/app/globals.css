@@ -321,7 +321,8 @@ body::after {
   justify-content: center;
 }
 
-.camera-feed-img {
+.camera-feed-img,
+video.camera-feed-img {
   width: 100%;
   height: 100%;
   object-fit: cover;

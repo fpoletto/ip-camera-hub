@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Go2RTCPlayer from "./Go2RTCPlayer";
 
 export default function Home() {
   // Application States
@@ -9,6 +10,9 @@ export default function Home() {
   const [profiles, setProfiles] = useState({});
   const [refreshKeys, setRefreshKeys] = useState({});
   const [activeAudios, setActiveAudios] = useState({});
+  const [streamConfigs, setStreamConfigs] = useState({});
+  const [showSettings, setShowSettings] = useState({});
+  const [visibleCameras, setVisibleCameras] = useState({});
 
   // Authentication States
   const [isAuthenticated, setIsAuthenticated] = useState(true); // Default true to avoid flash of lock screen
@@ -22,6 +26,18 @@ export default function Home() {
   const [fullscreenCamera, setFullscreenCamera] = useState(null); // null, "138", "139", "usb_0", "usb_1", "usb_2"
   const [logs, setLogs] = useState([]);
   const [uptime, setUptime] = useState("00:00:00");
+  
+  const [go2rtcAvailable, setGo2rtcAvailable] = useState(false);
+  const [streamingMode, setStreamingMode] = useState("mp4"); // "mp4", "mse", "webrtc", "mjpeg"
+  const [individualStreamingModes, setIndividualStreamingModes] = useState({});
+  const [showGlobalSettings, setShowGlobalSettings] = useState(false);
+  const [globalSettings, setGlobalSettings] = useState({
+    mode: "auto",
+    resolution: "720p",
+    fps: 15,
+    quality: 65,
+    bufsize: 2
+  });
   
   const startTimeRef = useRef(Date.now());
   const logContainerRef = useRef(null);
@@ -112,6 +128,40 @@ export default function Home() {
     }
   };
 
+  // Refs for stable dependencies in polling
+  const isBackendOnlineRef = useRef(isBackendOnline);
+  const cameraStatusRef = useRef(cameraStatus);
+  const adaptiveTiersRef = useRef({});
+
+  useEffect(() => {
+    isBackendOnlineRef.current = isBackendOnline;
+  }, [isBackendOnline]);
+
+  useEffect(() => {
+    cameraStatusRef.current = cameraStatus;
+  }, [cameraStatus]);
+
+  // Check go2rtc availability
+  useEffect(() => {
+    const checkGo2rtc = async () => {
+      try {
+        const res = await fetch("/go2rtc/api/streams");
+        if (res.ok) {
+          setGo2rtcAvailable(true);
+          console.log("[GO2RTC] Proxy de streaming detectado e online.");
+        } else {
+          setGo2rtcAvailable(false);
+        }
+      } catch {
+        setGo2rtcAvailable(false);
+        console.log("[GO2RTC] Proxy não detectado. Usando fallback MJPEG.");
+      }
+    };
+    checkGo2rtc();
+    const interval = setInterval(checkGo2rtc, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Poll status from python server
   useEffect(() => {
     let active = true;
@@ -124,7 +174,7 @@ export default function Home() {
         const data = await response.json();
         
         if (active) {
-          if (!isBackendOnline) {
+          if (!isBackendOnlineRef.current) {
             setIsBackendOnline(true);
             addLog("Servidor de Streaming detectado com sucesso online!", "success");
           }
@@ -169,6 +219,25 @@ export default function Home() {
             });
             return changed ? next : prev;
           });
+
+          setStreamConfigs(prev => {
+            const next = { ...prev };
+            let changed = false;
+            uniqueIds.forEach(id => {
+              if (!next[id]) {
+                next[id] = {
+                  mode: "auto",
+                  resolution: "720p",
+                  fps: 15,
+                  quality: 75,
+                  bufsize: 2,
+                  rtt: 0
+                };
+                changed = true;
+              }
+            });
+            return changed ? next : prev;
+          });
           
           // Check for camera status changes to log
           Object.keys(data).forEach((key) => {
@@ -182,7 +251,7 @@ export default function Home() {
             }
 
             const profileName = key.includes("main") ? "Main" : "Sub";
-            const wasConnected = cameraStatus[key]?.connected;
+            const wasConnected = cameraStatusRef.current[key]?.connected;
             const isConnected = data[key]?.connected;
             
             if (isConnected && wasConnected === false) {
@@ -204,7 +273,7 @@ export default function Home() {
         }
       } catch (err) {
         if (active) {
-          if (isBackendOnline) {
+          if (isBackendOnlineRef.current) {
             setIsBackendOnline(false);
             addLog("Conexão com o servidor de streaming foi perdida!", "error");
           }
@@ -238,10 +307,161 @@ export default function Home() {
       active = false;
       clearInterval(interval);
     };
-  }, [isBackendOnline, cameraStatus]);
+  }, []);
+
+  // Network monitor & auto-adaptive quality adjustment with Hysteresis
+  useEffect(() => {
+    if (!isBackendOnline) return;
+    
+    const monitorNetwork = async () => {
+      const start = Date.now();
+      try {
+        const res = await fetch("/health");
+        if (res.ok) {
+          const rtt = Date.now() - start;
+          
+          let downlink = 10;
+          if (typeof navigator !== "undefined" && navigator.connection) {
+            downlink = navigator.connection.downlink || 10;
+          }
+          
+          // Determine target tier (0 to 4)
+          let targetTier = 4;
+          if (rtt > 400 || downlink < 1.0) {
+            targetTier = 0; // 240p
+          } else if (rtt > 200 || downlink < 2.5) {
+            targetTier = 1; // 360p
+          } else if (rtt > 100 || downlink < 5.0) {
+            targetTier = 2; // 480p
+          } else if (rtt < 50) {
+            targetTier = 3; // 720p (Local network limit to avoid MJPEG choke)
+          } else {
+            targetTier = 4; // 1080p
+          }
+          
+          setStreamConfigs(prev => {
+            const next = { ...prev };
+            let changed = false;
+            
+            Object.keys(next).forEach(id => {
+              if (next[id].mode === "auto") {
+                // Initialize ref state for this camera if not exists
+                if (!adaptiveTiersRef.current[id]) {
+                  adaptiveTiersRef.current[id] = { lastTarget: targetTier, count: 0 };
+                }
+                
+                const state = adaptiveTiersRef.current[id];
+                if (state.lastTarget !== targetTier) {
+                  state.lastTarget = targetTier;
+                  state.count = 1;
+                } else {
+                  state.count += 1;
+                }
+                
+                // Only apply if target has been stable for 3 consecutive cycles (~15s)
+                if (state.count >= 3) {
+                  const TIERS = {
+                    0: { resolution: "240p", fps: 5, quality: 25, bufsize: 1 },
+                    1: { resolution: "360p", fps: 10, quality: 45, bufsize: 2 },
+                    2: { resolution: "480p", fps: 15, quality: 60, bufsize: 2 },
+                    3: { resolution: "720p", fps: 15, quality: 75, bufsize: 2 },
+                    4: { resolution: "1080p", fps: 30, quality: 85, bufsize: 2 }
+                  };
+                  const tier = TIERS[targetTier];
+                  
+                  if (
+                    next[id].resolution !== tier.resolution ||
+                    next[id].fps !== tier.fps ||
+                    next[id].quality !== tier.quality ||
+                    next[id].bufsize !== tier.bufsize ||
+                    next[id].rtt !== rtt
+                  ) {
+                    next[id] = {
+                      ...next[id],
+                      resolution: tier.resolution,
+                      fps: tier.fps,
+                      quality: tier.quality,
+                      bufsize: tier.bufsize,
+                      rtt: rtt
+                    };
+                    changed = true;
+                  }
+                } else {
+                  if (next[id].rtt !== rtt) {
+                    next[id] = { ...next[id], rtt: rtt };
+                    changed = true;
+                  }
+                }
+              } else {
+                if (next[id].rtt !== rtt) {
+                  next[id] = { ...next[id], rtt: rtt };
+                  changed = true;
+                }
+              }
+            });
+            
+            return changed ? next : prev;
+          });
+        }
+      } catch (err) {
+        console.error("Network monitoring failed:", err);
+      }
+    };
+    
+    const interval = setInterval(monitorNetwork, 5000);
+    return () => clearInterval(interval);
+  }, [isBackendOnline]);
+
+  const observerRef = useRef(null);
+
+  // Initialize the IntersectionObserver once on mount
+  useEffect(() => {
+    if (typeof window === "undefined" || !("IntersectionObserver" in window)) return;
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const cameraId = entry.target.getAttribute("data-camera-id");
+          if (cameraId) {
+            const isIntersecting = entry.isIntersecting;
+            setVisibleCameras((prev) => {
+              // Only update if visibility state actually changed to avoid infinite renders
+              if (prev[cameraId] === isIntersecting) return prev;
+              
+              if (isIntersecting) {
+                addLog(`Câmera ${getCameraLabel(cameraId)} em campo de visão. Retomando feed.`, "info");
+              } else {
+                addLog(`Câmera ${getCameraLabel(cameraId)} fora de visão. Suspendendo feed para poupar rede.`, "info");
+              }
+              
+              return { ...prev, [cameraId]: isIntersecting };
+            });
+          }
+        });
+      },
+      {
+        root: null,
+        rootMargin: "250px", // Generous margin so it pre-loads well in advance
+        threshold: 0.01 // Trigger as soon as 1% is visible
+      }
+    );
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, []);
+
+  // Callback ref to dynamically observe cards as they are rendered by React
+  const cardRefCallback = (element) => {
+    if (element && observerRef.current) {
+      observerRef.current.observe(element);
+    }
+  };
 
   // Helper to get friendly name
-  const getCameraLabel = (camera) => {
+  function getCameraLabel(camera) {
     if (camera.startsWith("usb_")) {
       const slot = camera.split("_")[1];
       return slot === "0" ? "Webcam USB Integrada (Slot 0)" : `Webcam USB Externa ${slot} (Slot ${slot})`;
@@ -250,7 +470,7 @@ export default function Home() {
     if (camera === "138") return "Câmera Principal (Lado A)";
     if (camera === "139") return "Câmera Estacionamento (Lado B)";
     return `Câmera IP ${ip}`;
-  };
+  }
 
   // Actions handler
   const handleProfileChange = (camera, profile) => {
@@ -326,7 +546,38 @@ export default function Home() {
   const getFeedSrc = (camera) => {
     const profile = profiles[camera];
     const key = refreshKeys[camera];
+    const config = streamConfigs[camera];
+    
+    if (config) {
+      const resMap = {
+        "1080p": { w: 1920, h: 1080 },
+        "720p": { w: 1280, h: 720 },
+        "480p": { w: 854, h: 480 },
+        "360p": { w: 640, h: 360 },
+        "240p": { w: 426, h: 240 }
+      };
+      const dimensions = resMap[config.resolution] || { w: 1280, h: 720 };
+      return `/stream/${camera}/${profile}?t=${key}&width=${dimensions.w}&height=${dimensions.h}&fps=${config.fps}&quality=${config.quality}&bufsize=${config.bufsize}`;
+    }
+    
     return `/stream/${camera}/${profile}?t=${key}`;
+  };
+
+  const getGo2rtcStreamName = (cameraId) => {
+    const profile = profiles[cameraId] || "main";
+    if (cameraId.startsWith("usb_")) {
+      return `camera_${cameraId}`;
+    }
+    return `camera_${cameraId}_${profile}`;
+  };
+
+  const getCameraStreamingMode = (cameraId) => {
+    if (!cameraId) return streamingMode;
+    const individualMode = individualStreamingModes[cameraId];
+    if (individualMode && individualMode !== "default") {
+      return individualMode;
+    }
+    return streamingMode;
   };
 
   const isCameraOnline = (camera) => {
@@ -643,18 +894,358 @@ export default function Home() {
             Lista de Câmeras
           </button>
         </div>
+
+        {go2rtcAvailable && (
+          <div className="segmented-control" style={{ marginLeft: "12px" }}>
+            <button
+              className={`segmented-btn ${streamingMode === "mp4" ? "active" : ""}`}
+              onClick={() => setStreamingMode("mp4")}
+            >
+              fMP4 (Túnel/Proxy)
+            </button>
+            <button
+              className={`segmented-btn ${streamingMode === "mse" ? "active" : ""}`}
+              onClick={() => setStreamingMode("mse")}
+            >
+              MSE (H.264 Local)
+            </button>
+            <button
+              className={`segmented-btn ${streamingMode === "webrtc" ? "active" : ""}`}
+              onClick={() => setStreamingMode("webrtc")}
+            >
+              WebRTC (Ultra-low)
+            </button>
+            <button
+              className={`segmented-btn ${streamingMode === "mjpeg" ? "active" : ""}`}
+              onClick={() => setStreamingMode("mjpeg")}
+            >
+              MJPEG (Legacy)
+            </button>
+          </div>
+        )}
+
+        {go2rtcAvailable && (
+          <button
+            className={`segmented-btn ${showGlobalSettings ? "active" : ""}`}
+            onClick={() => setShowGlobalSettings(!showGlobalSettings)}
+            style={{
+              marginLeft: "12px",
+              padding: "8px 12px",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              backgroundColor: showGlobalSettings ? "rgba(6, 182, 212, 0.15)" : "#1e1e24",
+              color: showGlobalSettings ? "#06b6d4" : "#a0aec0",
+              border: showGlobalSettings ? "1px solid #06b6d4" : "1px solid #2d2d3a",
+              borderRadius: "8px",
+              cursor: "pointer",
+              transition: "all 0.2s"
+            }}
+            title="Configurações Globais das Câmeras"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={showGlobalSettings ? "spin-animation" : ""}>
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            Ajustes Gerais
+          </button>
+        )}
       </div>
+
+      {/* CAMERA SETTINGS PANEL */}
+      {showGlobalSettings && go2rtcAvailable && (
+        <div 
+          className="stream-settings-panel" 
+          style={{ 
+            margin: "0 24px 24px 24px", 
+            borderRadius: "12px", 
+            border: "1px solid #23232c", 
+            backgroundColor: "#131316",
+            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.4)",
+            animation: "slideDown 0.3s ease-out"
+          }}
+        >
+          <div className="settings-row" style={{ borderBottom: "1px solid #23232c", paddingBottom: "12px", marginBottom: "16px" }}>
+            <span className="settings-label" style={{ fontSize: "1.1rem", fontWeight: "600", color: "#06b6d4" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "8px", verticalAlign: "middle" }}>
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              Painel de Ajustes Gerais (Todas as Câmeras)
+            </span>
+            <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+              Qualquer alteração feita aqui será aplicada instantaneamente a todos os canais ativos.
+            </span>
+          </div>
+
+          <div className="settings-row">
+            <span className="settings-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              Modo de Transmissão Geral
+            </span>
+            
+            <select 
+              className="settings-select"
+              value={globalSettings.mode}
+              onChange={(e) => {
+                const val = e.target.value;
+                setGlobalSettings(prev => ({ ...prev, mode: val }));
+                setStreamConfigs(prev => {
+                  const updated = {};
+                  Object.keys(prev).forEach(id => {
+                    updated[id] = { ...prev[id], mode: val };
+                  });
+                  return updated;
+                });
+                addLog(`Modo global de qualidade alterado para: ${val === "auto" ? "AUTO-ADAPTATIVO" : "MANUAL"}`, "info");
+              }}
+            >
+              <option value="auto">Auto (Adaptativo)</option>
+              <option value="manual">Manual / Fixo</option>
+            </select>
+          </div>
+
+          <div className="settings-row" style={{ marginTop: "12px" }}>
+            <span className="settings-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "6px", verticalAlign: "middle" }}>
+                <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+              </svg>
+              Protocolo de Vídeo Geral
+            </span>
+            
+            <select 
+              className="settings-select"
+              value={streamingMode}
+              onChange={(e) => {
+                const val = e.target.value;
+                setStreamingMode(val);
+                addLog(`Protocolo global de transmissão alterado para: ${val.toUpperCase()}`, "info");
+              }}
+            >
+              <option value="mp4">fMP4 (Túnel/Proxy)</option>
+              <option value="mse">MSE (H.264 Local)</option>
+              <option value="webrtc">WebRTC (Ultra-low)</option>
+              <option value="mjpeg">MJPEG (Legacy)</option>
+            </select>
+          </div>
+
+          {globalSettings.mode === "auto" ? (
+            <div style={{
+              background: "rgba(6, 182, 212, 0.05)",
+              border: "1px solid rgba(6, 182, 212, 0.15)",
+              borderRadius: "8px",
+              padding: "12px",
+              color: "#94a3b8",
+              lineHeight: "1.4",
+              fontSize: "0.775rem",
+              marginTop: "16px"
+            }}>
+              <strong style={{ color: "#06b6d4" }}>Adaptação Automática Ativa (Global):</strong> Todas as câmeras gerenciam suas próprias qualidades dinamicamente com base em suas respectivas latências de rede e limites de banda local.
+            </div>
+          ) : (
+            <div style={{ animation: "fadeIn 0.2s", marginTop: "16px" }}>
+              <div className="settings-col" style={{ marginBottom: "16px" }}>
+                <span className="settings-label">Presets Globais Rápidos</span>
+                <div className="preset-grid">
+                  <button 
+                    className={`preset-btn ${
+                      globalSettings.resolution === "1080p" && globalSettings.fps === 30 && globalSettings.quality === 85 ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setGlobalSettings(prev => ({ ...prev, resolution: "1080p", fps: 30, quality: 85 }));
+                      setStreamConfigs(prev => {
+                        const updated = {};
+                        Object.keys(prev).forEach(id => {
+                          updated[id] = { ...prev[id], resolution: "1080p", fps: 30, quality: 85, bufsize: 2 };
+                        });
+                        return updated;
+                      });
+                      addLog("Preset global de Alta Qualidade (1080p) aplicado a todas as câmeras.", "success");
+                    }}
+                  >
+                    HD 1080p
+                  </button>
+                  <button 
+                    className={`preset-btn ${
+                      globalSettings.resolution === "720p" && globalSettings.fps === 15 && globalSettings.quality === 65 ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setGlobalSettings(prev => ({ ...prev, resolution: "720p", fps: 15, quality: 65 }));
+                      setStreamConfigs(prev => {
+                        const updated = {};
+                        Object.keys(prev).forEach(id => {
+                          updated[id] = { ...prev[id], resolution: "720p", fps: 15, quality: 65, bufsize: 2 };
+                        });
+                        return updated;
+                      });
+                      addLog("Preset global de Médio Desempenho (720p) aplicado a todas as câmeras.", "success");
+                    }}
+                  >
+                    Médio 720p
+                  </button>
+                  <button 
+                    className={`preset-btn ${
+                      globalSettings.resolution === "480p" && globalSettings.fps === 10 && globalSettings.quality === 50 ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setGlobalSettings(prev => ({ ...prev, resolution: "480p", fps: 10, quality: 50 }));
+                      setStreamConfigs(prev => {
+                        const updated = {};
+                        Object.keys(prev).forEach(id => {
+                          updated[id] = { ...prev[id], resolution: "480p", fps: 10, quality: 50, bufsize: 2 };
+                        });
+                        return updated;
+                      });
+                      addLog("Preset global de Economia (480p) aplicado a todas as câmeras.", "success");
+                    }}
+                  >
+                    Economia 480p
+                  </button>
+                  <button 
+                    className={`preset-btn ${
+                      globalSettings.resolution === "240p" && globalSettings.fps === 5 && globalSettings.quality === 30 ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setGlobalSettings(prev => ({ ...prev, resolution: "240p", fps: 5, quality: 30 }));
+                      setStreamConfigs(prev => {
+                        const updated = {};
+                        Object.keys(prev).forEach(id => {
+                          updated[id] = { ...prev[id], resolution: "240p", fps: 5, quality: 30, bufsize: 2 };
+                        });
+                        return updated;
+                      });
+                      addLog("Preset global de Baixo Consumo (240p) aplicado a todas as câmeras.", "success");
+                    }}
+                  >
+                    Mínimo 240p
+                  </button>
+                </div>
+              </div>
+
+              <div className="preset-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+                <div className="settings-col">
+                  <label className="settings-label">Resolução Geral</label>
+                  <select 
+                    className="settings-select"
+                    value={globalSettings.resolution}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setGlobalSettings(prev => ({ ...prev, resolution: val }));
+                      setStreamConfigs(prev => {
+                        const updated = {};
+                        Object.keys(prev).forEach(id => {
+                          updated[id] = { ...prev[id], resolution: val };
+                        });
+                        return updated;
+                      });
+                      addLog(`Resolução global alterada para: ${val}`, "info");
+                    }}
+                  >
+                    <option value="1080p">1920x1080 (HD 1080p)</option>
+                    <option value="720p">1280x720 (Médio 720p)</option>
+                    <option value="480p">854x480 (Economia 480p)</option>
+                    <option value="240p">426x240 (Mínimo 240p)</option>
+                  </select>
+                </div>
+
+                <div className="settings-col">
+                  <label className="settings-label">Frame Rate Geral (FPS)</label>
+                  <select 
+                    className="settings-select"
+                    value={globalSettings.fps}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      setGlobalSettings(prev => ({ ...prev, fps: val }));
+                      setStreamConfigs(prev => {
+                        const updated = {};
+                        Object.keys(prev).forEach(id => {
+                          updated[id] = { ...prev[id], fps: val };
+                        });
+                        return updated;
+                      });
+                      addLog(`FPS global alterado para: ${val} FPS`, "info");
+                    }}
+                  >
+                    <option value="30">30 FPS (Fluidez Máxima)</option>
+                    <option value="20">20 FPS (Intermediário)</option>
+                    <option value="15">15 FPS (Padrão CFTV)</option>
+                    <option value="10">10 FPS (Econômico)</option>
+                    <option value="5">5 FPS (Mínimo)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="preset-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginTop: "16px" }}>
+                <div className="settings-col">
+                  <div className="settings-row" style={{ justifyContent: "space-between" }}>
+                    <label className="settings-label">Qualidade Geral</label>
+                    <span className="settings-value">{globalSettings.quality}%</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="10" 
+                    max="95" 
+                    value={globalSettings.quality}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      setGlobalSettings(prev => ({ ...prev, quality: val }));
+                      setStreamConfigs(prev => {
+                        const updated = {};
+                        Object.keys(prev).forEach(id => {
+                          updated[id] = { ...prev[id], quality: val };
+                        });
+                        return updated;
+                      });
+                    }}
+                    className="settings-slider"
+                  />
+                </div>
+
+                <div className="settings-col">
+                  <div className="settings-row" style={{ justifyContent: "space-between" }}>
+                    <label className="settings-label">Buffer Geral</label>
+                    <span className="settings-value">{globalSettings.bufsize} frames</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max="10" 
+                    value={globalSettings.bufsize}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      setGlobalSettings(prev => ({ ...prev, bufsize: val }));
+                      setStreamConfigs(prev => {
+                        const updated = {};
+                        Object.keys(prev).forEach(id => {
+                          updated[id] = { ...prev[id], bufsize: val };
+                        });
+                        return updated;
+                      });
+                    }}
+                    className="settings-slider"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* CAMERA GRID */}
       <main className={`monitoring-grid ${layoutMode === "grid" ? "grid-cols-2" : "grid-cols-1"}`}>
         
         {camerasConfig.map((cam) => (
-          <div className="camera-card" key={cam.id}>
+          <div className="camera-card" key={cam.id} data-camera-id={cam.id} ref={cardRefCallback}>
             <div className="card-header">
               <div className="camera-info">
                 <span className="camera-name">{cam.name}</span>
                 <span className="camera-ip">{cam.details}</span>
               </div>
+
               <div className={`camera-status-badge ${isCameraOnline(cam.id) ? "online" : (isBackendOnline ? "connecting" : "offline")}`}>
                 <div className="status-dot"></div>
                 <span>{isCameraOnline(cam.id) ? "LIVE" : (isBackendOnline ? (cam.isUsb ? "OFFLINE" : "CONECTANDO...") : "OFFLINE")}</span>
@@ -663,12 +1254,27 @@ export default function Home() {
 
             <div className="feed-container">
               {isCameraOnline(cam.id) ? (
-                <>
-                  <img 
-                    src={getFeedSrc(cam.id)} 
-                    alt={`Feed de ${cam.name}`} 
-                    className="camera-feed-img"
-                  />
+                (visibleCameras[cam.id] !== false || fullscreenCamera === cam.id) ? (
+                  <>
+                    {go2rtcAvailable && getCameraStreamingMode(cam.id) !== "mjpeg" ? (
+                      <Go2RTCPlayer
+                        streamName={getGo2rtcStreamName(cam.id)}
+                        mode={getCameraStreamingMode(cam.id)}
+                        className="camera-feed-img"
+                        onConnectionChange={(connected) => {
+                          if (!connected) {
+                            addLog(`Stream go2rtc de ${cam.name} desconectou. Reconectando...`, "warn");
+                          }
+                        }}
+                      />
+                    ) : (
+                      <img 
+                        key={`${cam.id}_${profiles[cam.id]}_${refreshKeys[cam.id]}`}
+                        src={getFeedSrc(cam.id)} 
+                        alt={`Feed de ${cam.name}`} 
+                        className="camera-feed-img"
+                      />
+                    )}
                   
                   {/* PTZ D-PAD CONTROLLER OVERLAY - IP CAMERAS ONLY */}
                   {!cam.isUsb && (
@@ -751,11 +1357,28 @@ export default function Home() {
                         {cam.isUsb ? cam.id.toUpperCase() : `CH0${cam.id === "138" ? "1" : "2"}`} | TCP {activeAudios[cam.id] && " | AUDIO ACTIVE"}
                       </div>
                       <div className="hud-item">
-                        {getCameraMetadata(cam.id).width}x{getCameraMetadata(cam.id).height} @ {getCameraMetadata(cam.id).fps_real || getCameraMetadata(cam.id).fps_nominal} FPS
+                        {streamConfigs[cam.id] ? (
+                          `${streamConfigs[cam.id].resolution} (${streamConfigs[cam.id].mode === "auto" ? "Auto" : "Manual"}) @ ${streamConfigs[cam.id].fps} FPS`
+                        ) : (
+                          `${getCameraMetadata(cam.id).width}x${getCameraMetadata(cam.id).height} @ ${getCameraMetadata(cam.id).fps_real || getCameraMetadata(cam.id).fps_nominal} FPS`
+                        )}
                       </div>
                     </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="feed-offline-placeholder feed-suspended">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: "hsl(var(--text-secondary))", opacity: 0.6 }}>
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                      <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                    <h3 style={{ fontSize: "1.05rem", fontWeight: "600", marginTop: "12px", color: "hsl(var(--text-primary))" }}>Feed em Espera</h3>
+                    <p style={{ fontSize: "0.825rem", color: "hsl(var(--text-secondary))", maxWidth: "260px", textAlign: "center", marginTop: "4px" }}>
+                      Transmissão pausada para poupar dados móveis e processamento. Role para retomar instantaneamente.
+                    </p>
                   </div>
-                </>
+                )
               ) : (
                 <div className="feed-offline-placeholder">
                   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -844,6 +1467,17 @@ export default function Home() {
                   </svg>
                 </button>
                 <button 
+                  className={`action-btn ${showSettings[cam.id] ? "audio-active" : ""}`}
+                  title="Configurações de Transmissão"
+                  onClick={() => setShowSettings(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
+                  disabled={!isBackendOnline}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                  </svg>
+                </button>
+                <button 
                   className="action-btn" 
                   title="Expandir Tela Cheia"
                   onClick={() => toggleFullscreen(cam.id)}
@@ -855,6 +1489,361 @@ export default function Home() {
                 </button>
               </div>
             </div>
+
+            {showSettings[cam.id] && streamConfigs[cam.id] && (
+              <div className="stream-settings-panel">
+                <style>{`
+                  .stream-settings-panel {
+                    background: rgba(15, 23, 42, 0.85);
+                    backdrop-filter: blur(12px);
+                    border-top: 1px solid rgba(255, 255, 255, 0.08);
+                    padding: 16px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                    font-size: 0.825rem;
+                    animation: slideDown 0.25s ease-out;
+                  }
+                  @keyframes slideDown {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                  }
+                  .settings-row {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 12px;
+                  }
+                  .settings-col {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                    flex-grow: 1;
+                  }
+                  .settings-label {
+                    font-weight: 600;
+                    color: #94a3b8;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                  }
+                  .settings-value {
+                    font-family: monospace;
+                    font-weight: bold;
+                    color: #06b6d4;
+                  }
+                  .settings-select, .settings-input {
+                    background: rgba(30, 41, 59, 0.7);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 6px;
+                    color: #f8fafc;
+                    padding: 6px 10px;
+                    font-size: 0.8rem;
+                    outline: none;
+                    transition: border-color 0.2s;
+                  }
+                  .settings-select:focus, .settings-input:focus {
+                    border-color: #06b6d4;
+                  }
+                  .settings-slider {
+                    -webkit-appearance: none;
+                    width: 100%;
+                    height: 5px;
+                    border-radius: 5px;
+                    background: #334155;
+                    outline: none;
+                  }
+                  .settings-slider::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    width: 15px;
+                    height: 15px;
+                    border-radius: 50%;
+                    background: #06b6d4;
+                    cursor: pointer;
+                    box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+                  }
+                  .latency-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                  }
+                  .latency-good { background: rgba(34, 197, 94, 0.1); color: #4ade80; }
+                  .latency-medium { background: rgba(234, 179, 8, 0.1); color: #facc15; }
+                  .latency-bad { background: rgba(239, 68, 68, 0.1); color: #f87171; }
+                  
+                  .preset-grid {
+                    display: grid;
+                    grid-template-cols: repeat(4, 1fr);
+                    gap: 6px;
+                    margin-top: 4px;
+                  }
+                  .preset-btn {
+                    background: rgba(30, 41, 59, 0.5);
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    border-radius: 6px;
+                    color: #94a3b8;
+                    padding: 6px 4px;
+                    font-size: 0.75rem;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    text-align: center;
+                  }
+                  .preset-btn:hover {
+                    background: rgba(30, 41, 59, 0.9);
+                    color: #f8fafc;
+                  }
+                  .preset-btn.active {
+                    background: rgba(6, 182, 212, 0.15);
+                    border-color: #06b6d4;
+                    color: #06b6d4;
+                    font-weight: 600;
+                  }
+                `}</style>
+
+                <div className="settings-row">
+                  <span className="settings-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <circle cx="12" cy="12" r="3"></circle>
+                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    Modo de Transmissão
+                  </span>
+                  
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <span className={`latency-badge ${
+                      streamConfigs[cam.id].rtt < 150 ? "latency-good" : (streamConfigs[cam.id].rtt < 300 ? "latency-medium" : "latency-bad")
+                    }`}>
+                      RTT: {streamConfigs[cam.id].rtt}ms
+                    </span>
+                    
+                    <select 
+                      className="settings-select"
+                      value={streamConfigs[cam.id].mode}
+                      onChange={(e) => {
+                        const newMode = e.target.value;
+                        setStreamConfigs(prev => ({
+                          ...prev,
+                          [cam.id]: { ...prev[cam.id], mode: newMode }
+                        }));
+                        addLog(`${getCameraLabel(cam.id)} configurada para modo: ${newMode === "auto" ? "AUTO-ADAPTATIVO" : "MANUAL"}`, "info");
+                      }}
+                    >
+                      <option value="auto">Auto (Adaptativo)</option>
+                      <option value="manual">Manual / Fixo</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="settings-row" style={{ marginTop: "12px" }}>
+                  <span className="settings-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "6px", verticalAlign: "middle" }}>
+                      <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                      <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                    </svg>
+                    Protocolo de Vídeo
+                  </span>
+                  
+                  <select 
+                    className="settings-select"
+                    value={individualStreamingModes[cam.id] || "default"}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setIndividualStreamingModes((prev) => ({
+                        ...prev,
+                        [cam.id]: val,
+                      }));
+                      addLog(`Câmera ${cam.name} configurada para protocolo: ${val === "default" ? "GLOBAL (" + streamingMode.toUpperCase() + ")" : val.toUpperCase()}`, "info");
+                    }}
+                  >
+                    <option value="default">Global ({streamingMode.toUpperCase()})</option>
+                    <option value="mp4">fMP4 (Túnel)</option>
+                    <option value="mse">MSE (H.264)</option>
+                    <option value="webrtc">WebRTC (Ultra)</option>
+                    <option value="mjpeg">MJPEG (Legacy)</option>
+                  </select>
+                </div>
+
+                {streamConfigs[cam.id].mode === "auto" ? (
+                  <div style={{
+                    background: "rgba(6, 182, 212, 0.05)",
+                    border: "1px solid rgba(6, 182, 212, 0.15)",
+                    borderRadius: "8px",
+                    padding: "10px",
+                    color: "#94a3b8",
+                    lineHeight: "1.4",
+                    fontSize: "0.775rem"
+                  }}>
+                    <strong style={{ color: "#06b6d4" }}>Adaptação Automática Ativa:</strong> O sistema ajusta resolução, taxa de quadros e qualidade com base na sua latência de rede e desempenho de processamento.
+                    <div style={{ display: "flex", gap: "12px", marginTop: "6px", flexWrap: "wrap" }}>
+                      <span>Resolução: <span className="settings-value">{streamConfigs[cam.id].resolution}</span></span>
+                      <span>FPS: <span className="settings-value">{streamConfigs[cam.id].fps} FPS</span></span>
+                      <span>Qualidade: <span className="settings-value">{streamConfigs[cam.id].quality}%</span></span>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="settings-col">
+                      <span className="settings-label">Presets Rápidos de Qualidade</span>
+                      <div className="preset-grid">
+                        <button 
+                          className={`preset-btn ${
+                            streamConfigs[cam.id].resolution === "1080p" && streamConfigs[cam.id].fps === 30 && streamConfigs[cam.id].quality === 85 ? "active" : ""
+                          }`}
+                          onClick={() => {
+                            setStreamConfigs(prev => ({
+                              ...prev,
+                              [cam.id]: { ...prev[cam.id], resolution: "1080p", fps: 30, quality: 85, bufsize: 2 }
+                            }));
+                            addLog(`Preset Alta Qualidade (1080p) aplicado a ${getCameraLabel(cam.id)}`, "success");
+                          }}
+                        >
+                          HD 1080p
+                        </button>
+                        <button 
+                          className={`preset-btn ${
+                            streamConfigs[cam.id].resolution === "720p" && streamConfigs[cam.id].fps === 15 && streamConfigs[cam.id].quality === 65 ? "active" : ""
+                          }`}
+                          onClick={() => {
+                            setStreamConfigs(prev => ({
+                              ...prev,
+                              [cam.id]: { ...prev[cam.id], resolution: "720p", fps: 15, quality: 65, bufsize: 2 }
+                            }));
+                            addLog(`Preset Médio (720p) aplicado a ${getCameraLabel(cam.id)}`, "success");
+                          }}
+                        >
+                          Médio 720p
+                        </button>
+                        <button 
+                          className={`preset-btn ${
+                            streamConfigs[cam.id].resolution === "480p" && streamConfigs[cam.id].fps === 10 && streamConfigs[cam.id].quality === 50 ? "active" : ""
+                          }`}
+                          onClick={() => {
+                            setStreamConfigs(prev => ({
+                              ...prev,
+                              [cam.id]: { ...prev[cam.id], resolution: "480p", fps: 10, quality: 50, bufsize: 2 }
+                            }));
+                            addLog(`Preset Economia (480p) aplicado a ${getCameraLabel(cam.id)}`, "success");
+                          }}
+                        >
+                          Econômico
+                        </button>
+                        <button 
+                          className={`preset-btn ${
+                            streamConfigs[cam.id].resolution === "240p" && streamConfigs[cam.id].fps === 5 && streamConfigs[cam.id].quality === 30 ? "active" : ""
+                          }`}
+                          onClick={() => {
+                            setStreamConfigs(prev => ({
+                              ...prev,
+                              [cam.id]: { ...prev[cam.id], resolution: "240p", fps: 5, quality: 30, bufsize: 1 }
+                            }));
+                            addLog(`Preset Mínimo (240p) aplicado a ${getCameraLabel(cam.id)}`, "success");
+                          }}
+                        >
+                          Ultra Leve
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "4px" }}>
+                      <div className="settings-col">
+                        <label className="settings-label">Resolução</label>
+                        <select 
+                          className="settings-select"
+                          value={streamConfigs[cam.id].resolution}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setStreamConfigs(prev => ({
+                              ...prev,
+                              [cam.id]: { ...prev[cam.id], resolution: val }
+                            }));
+                          }}
+                        >
+                          <option value="1080p">1920x1080 (HD)</option>
+                          <option value="720p">1280x720 (SD)</option>
+                          <option value="480p">854x480 (480p)</option>
+                          <option value="360p">640x360 (360p)</option>
+                          <option value="240p">426x240 (240p)</option>
+                        </select>
+                      </div>
+
+                      <div className="settings-col">
+                        <label className="settings-label">Frame Rate (FPS)</label>
+                        <select 
+                          className="settings-select"
+                          value={streamConfigs[cam.id].fps}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            setStreamConfigs(prev => ({
+                              ...prev,
+                              [cam.id]: { ...prev[cam.id], fps: val }
+                            }));
+                          }}
+                        >
+                          <option value={30}>30 FPS (Fluido)</option>
+                          <option value={20}>20 FPS</option>
+                          <option value={15}>15 FPS (Padrão)</option>
+                          <option value={10}>10 FPS</option>
+                          <option value={5}>5 FPS (Leve)</option>
+                          <option value={2}>2 FPS</option>
+                          <option value={1}>1 FPS (Slideshow)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                      <div className="settings-col">
+                        <div className="settings-row" style={{ justifyContent: "space-between" }}>
+                          <label className="settings-label">Qualidade (Bitrate)</label>
+                          <span className="settings-value">{streamConfigs[cam.id].quality}%</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="10" 
+                          max="100" 
+                          step="5"
+                          className="settings-slider"
+                          value={streamConfigs[cam.id].quality}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            setStreamConfigs(prev => ({
+                              ...prev,
+                              [cam.id]: { ...prev[cam.id], quality: val }
+                            }));
+                          }}
+                        />
+                      </div>
+
+                      <div className="settings-col">
+                        <div className="settings-row" style={{ justifyContent: "space-between" }}>
+                          <label className="settings-label">Buffer Canal</label>
+                          <span className="settings-value">{streamConfigs[cam.id].bufsize} frames</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="10" 
+                          step="1"
+                          className="settings-slider"
+                          value={streamConfigs[cam.id].bufsize}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            setStreamConfigs(prev => ({
+                              ...prev,
+                              [cam.id]: { ...prev[cam.id], bufsize: val }
+                            }));
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         ))}
 
@@ -1016,12 +2005,27 @@ export default function Home() {
             </div>
             
             <div className="feed-container" style={{ flexGrow: 1 }}>
-              <img 
-                src={getFeedSrc(fullscreenCamera)} 
-                alt="Fullscreen Stream" 
-                className="camera-feed-img"
-                style={{ objectFit: "contain" }}
-              />
+              {go2rtcAvailable && getCameraStreamingMode(fullscreenCamera) !== "mjpeg" ? (
+                <Go2RTCPlayer
+                  streamName={getGo2rtcStreamName(fullscreenCamera)}
+                  mode={getCameraStreamingMode(fullscreenCamera)}
+                  className="camera-feed-img"
+                  style={{ objectFit: "contain" }}
+                  onConnectionChange={(connected) => {
+                    if (!connected) {
+                      addLog(`Stream fullscreen de ${getCameraLabel(fullscreenCamera)} desconectou.`, "warn");
+                    }
+                  }}
+                />
+              ) : (
+                <img 
+                  key={`${fullscreenCamera}_${profiles[fullscreenCamera]}_${refreshKeys[fullscreenCamera]}`}
+                  src={getFeedSrc(fullscreenCamera)} 
+                  alt="Fullscreen Stream" 
+                  className="camera-feed-img"
+                  style={{ objectFit: "contain" }}
+                />
+              )}
               
               {/* PTZ D-PAD CONTROLLER OVERLAY FOR FULLSCREEN - IP CAMERAS ONLY */}
               {!isUsbCamera(fullscreenCamera) && (
@@ -1104,7 +2108,11 @@ export default function Home() {
                     {isUsbCamera(fullscreenCamera) ? "DIRECT VIDEO CAPTURE" : `TCP OVER ONVIF PROTOCOL ${activeAudios[fullscreenCamera] ? " | AUDIO ACTIVE" : ""}`}
                   </div>
                   <div className="hud-item">
-                    {getCameraMetadata(fullscreenCamera).width}x{getCameraMetadata(fullscreenCamera).height} @ {getCameraMetadata(fullscreenCamera).fps_real || getCameraMetadata(fullscreenCamera).fps_nominal} FPS
+                    {streamConfigs[fullscreenCamera] ? (
+                      `${streamConfigs[fullscreenCamera].resolution} (${streamConfigs[fullscreenCamera].mode === "auto" ? "Auto" : "Manual"}) @ ${streamConfigs[fullscreenCamera].fps} FPS`
+                    ) : (
+                      `${getCameraMetadata(fullscreenCamera).width}x${getCameraMetadata(fullscreenCamera).height} @ ${getCameraMetadata(fullscreenCamera).fps_real || getCameraMetadata(fullscreenCamera).fps_nominal} FPS`
+                    )}
                   </div>
                 </div>
               </div>

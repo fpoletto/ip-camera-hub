@@ -174,6 +174,34 @@ if ! kill -0 $BACKEND_PID 2>/dev/null; then
 fi
 echo -e "${GREEN}[OK] Backend de mídia ativo (PID: $BACKEND_PID).${NC}"
 
+# 2.5 Gerar configuração do go2rtc a partir da discovery do backend
+echo -e "${CYAN}[GO2RTC] Gerando configuração de streams...${NC}"
+sleep 2  # Aguardar backend completar discovery e salvar cache
+
+if [ -f "discovery_cache.json" ]; then
+    IP_CAMERAS=$(python3 -c "import json; d=json.load(open('discovery_cache.json')); print(json.dumps(d['ip_cameras']))")
+    USB_CAMERAS=$(python3 -c "import json; d=json.load(open('discovery_cache.json')); print(json.dumps(d['usb_cameras']))")
+    python3 go2rtc_config.py "$IP_CAMERAS" "$USB_CAMERAS"
+else
+    echo -e "${YELLOW}[AVISO] Cache de discovery não encontrado. Gerando config mínimo do go2rtc.${NC}"
+    python3 go2rtc_config.py '[]' '[]'
+fi
+
+# 2.6 Iniciar go2rtc
+echo -e "${CYAN}[GO2RTC] Iniciando proxy de streaming go2rtc na porta 1984...${NC}"
+if [ -f ".bin/go2rtc" ]; then
+    ./.bin/go2rtc -config go2rtc.yaml > go2rtc.log 2>&1 &
+    GO2RTC_PID=$!
+    sleep 1.5
+    if kill -0 $GO2RTC_PID 2>/dev/null; then
+        echo -e "${GREEN}[OK] go2rtc ativo (PID: $GO2RTC_PID). WebRTC porta 8555, API porta 1984.${NC}"
+    else
+        echo -e "${RED}[ERRO] Falha ao iniciar go2rtc. Verifique go2rtc.log.${NC}"
+    fi
+else
+    echo -e "${RED}[AVISO] Binário go2rtc não encontrado em .bin/.${NC}"
+fi
+
 # 3. Iniciar o Frontend Next.js
 echo -e "${CYAN}[FRONTEND] Iniciando interface de monitoramento na porta 3000...${NC}"
 cd camera-ui
@@ -256,9 +284,11 @@ echo -e "  Dashboard Local: ${CYAN}http://localhost:3000${NC}"
 if [ -n "$IP_LOCAL" ]; then
     echo -e "  Outros computadores da mesma rede: ${CYAN}http://${IP_LOCAL}:3000${NC}"
 fi
+echo -e "  Streaming go2rtc API: ${CYAN}http://localhost:1984${NC}"
 echo -e "----------------------------------------------------------------------"
 echo -e "Logs do backend:   ${YELLOW}tail -f backend.log${NC}"
 echo -e "Logs do frontend:  ${YELLOW}tail -f frontend.log${NC}"
+echo -e "Logs do go2rtc:    ${YELLOW}tail -f go2rtc.log${NC}"
 echo -e "----------------------------------------------------------------------"
 echo -e "Pressione ${RED}[Ctrl+C]${NC} a qualquer momento para desligar todos os servidores."
 echo -e "${GREEN}======================================================================${NC}"
@@ -266,6 +296,9 @@ echo -e "${GREEN}===============================================================
 # Função de encerramento limpo de todos os processos
 cleanup() {
     echo -e "\n\n${YELLOW}[SHUTDOWN] Desligando serviços de monitoramento...${NC}"
+    if [ -n "$GO2RTC_PID" ]; then
+        kill "$GO2RTC_PID" 2>/dev/null
+    fi
     if [ -n "$BACKEND_PID" ]; then
         kill "$BACKEND_PID" 2>/dev/null
     fi
