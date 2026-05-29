@@ -929,12 +929,7 @@ video.camera-feed-img {
   border-color: hsl(var(--success)) !important;
 }
 
-/* Stream Settings Panels (Global & Individual) */
-.global-settings-panel {
-  margin-bottom: 1.5rem;
-  width: 100%;
-  animation: slideDown var(--transition-normal);
-}
+
 
 .stream-settings-panel {
   background: hsla(var(--bg-surface), 0.85);
@@ -1084,4 +1079,97 @@ video.camera-feed-img {
   color: hsl(var(--primary));
   font-weight: 600;
   box-shadow: 0 0 10px hsla(var(--primary), 0.1);
+}
+
+/* Settings Modal Styles */
+.settings-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: fade-in var(--transition-fast) ease-out;
+}
+
+.settings-modal-card {
+  background-color: #0f131c; /* Fallback sólido de segurança para evitar fundo transparente */
+  background: hsl(var(--bg-card) / 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 580px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 40px hsl(var(--primary) / 0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: scaleUp var(--transition-normal) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes scaleUp {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.settings-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid hsl(var(--border));
+  background-color: #121824; /* Fallback sólido */
+  background: hsl(var(--bg-surface) / 0.6);
+}
+
+.settings-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: hsl(var(--primary));
+  text-shadow: 0 0 10px hsl(var(--primary) / 0.35);
+}
+
+.settings-modal-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+}
+
+.close-modal-btn {
+  background: transparent;
+  border: none;
+  color: hsl(var(--text-muted));
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  transition: all var(--transition-fast);
+}
+
+.close-modal-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: hsl(var(--text-primary));
 }

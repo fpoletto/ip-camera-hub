@@ -952,276 +952,286 @@ export default function Home() {
         )}
       </div>
 
-      {/* CAMERA SETTINGS PANEL */}
+      {/* CAMERA SETTINGS MODAL */}
       {showGlobalSettings && go2rtcAvailable && (
-        <div className="global-settings-panel glass-panel">
-          <div className="settings-row" style={{ borderBottom: "1px solid hsl(var(--border))", paddingBottom: "12px", marginBottom: "16px" }}>
-            <span className="settings-label" style={{ fontSize: "1.1rem", fontWeight: "700", color: "hsl(var(--primary))", textShadow: "0 0 10px hsla(var(--primary), 0.35)" }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "8px", verticalAlign: "middle" }}>
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-              </svg>
-              Painel de Ajustes Gerais (Todas as Câmeras)
-            </span>
-            <span style={{ fontSize: "0.8rem", color: "hsl(var(--text-muted))" }}>
-              Qualquer alteração feita aqui será aplicada instantaneamente a todos os canais ativos.
-            </span>
-          </div>
-
-          <div className="settings-row">
-            <span className="settings-label">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-              </svg>
-              Modo de Transmissão Geral
-            </span>
-            
-            <select 
-              className="settings-select"
-              value={globalSettings.mode}
-              onChange={(e) => {
-                const val = e.target.value;
-                setGlobalSettings(prev => ({ ...prev, mode: val }));
-                setStreamConfigs(prev => {
-                  const updated = {};
-                  Object.keys(prev).forEach(id => {
-                    updated[id] = { ...prev[id], mode: val };
-                  });
-                  return updated;
-                });
-                addLog(`Modo global de qualidade alterado para: ${val === "auto" ? "AUTO-ADAPTATIVO" : "MANUAL"}`, "info");
-              }}
-            >
-              <option value="auto">Auto (Adaptativo)</option>
-              <option value="manual">Manual / Fixo</option>
-            </select>
-          </div>
-
-          <div className="settings-row" style={{ marginTop: "12px" }}>
-            <span className="settings-label">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "6px", verticalAlign: "middle" }}>
-                <polygon points="23 7 16 12 23 17 23 7"></polygon>
-                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-              </svg>
-              Protocolo de Vídeo Geral
-            </span>
-            
-            <select 
-              className="settings-select"
-              value={streamingMode}
-              onChange={(e) => {
-                const val = e.target.value;
-                setStreamingMode(val);
-                addLog(`Protocolo global de transmissão alterado para: ${val.toUpperCase()}`, "info");
-              }}
-            >
-              <option value="mp4">fMP4 (Túnel/Proxy)</option>
-              <option value="mse">MSE (H.264 Local)</option>
-              <option value="webrtc">WebRTC (Ultra-low)</option>
-              <option value="mjpeg">MJPEG (Legacy)</option>
-            </select>
-          </div>
-
-          {globalSettings.mode === "auto" ? (
-            <div style={{
-              background: "rgba(6, 182, 212, 0.05)",
-              border: "1px solid rgba(6, 182, 212, 0.15)",
-              borderRadius: "8px",
-              padding: "12px",
-              color: "#94a3b8",
-              lineHeight: "1.4",
-              fontSize: "0.775rem",
-              marginTop: "16px"
-            }}>
-              <strong style={{ color: "#06b6d4" }}>Adaptação Automática Ativa (Global):</strong> Todas as câmeras gerenciam suas próprias qualidades dinamicamente com base em suas respectivas latências de rede e limites de banda local.
+        <div className="settings-modal-overlay" onClick={() => setShowGlobalSettings(false)}>
+          <div className="settings-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="settings-modal-header">
+              <span className="settings-modal-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                Ajustes Gerais (Todas as Câmeras)
+              </span>
+              <button className="close-modal-btn" onClick={() => setShowGlobalSettings(false)} title="Fechar Ajustes">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
             </div>
-          ) : (
-            <div style={{ animation: "fadeIn 0.2s", marginTop: "16px" }}>
-              <div className="settings-col" style={{ marginBottom: "16px" }}>
-                <span className="settings-label">Presets Globais Rápidos</span>
-                <div className="preset-grid">
-                  <button 
-                    className={`preset-btn ${
-                      globalSettings.resolution === "1080p" && globalSettings.fps === 30 && globalSettings.quality === 85 ? "active" : ""
-                    }`}
-                    onClick={() => {
-                      setGlobalSettings(prev => ({ ...prev, resolution: "1080p", fps: 30, quality: 85 }));
-                      setStreamConfigs(prev => {
-                        const updated = {};
-                        Object.keys(prev).forEach(id => {
-                          updated[id] = { ...prev[id], resolution: "1080p", fps: 30, quality: 85, bufsize: 2 };
-                        });
-                        return updated;
+            <div className="settings-modal-body">
+              <span style={{ fontSize: "0.8rem", color: "hsl(var(--text-muted))", marginTop: "-4px", marginBottom: "8px", display: "block", lineHeight: "1.4" }}>
+                Qualquer alteração feita aqui será aplicada instantaneamente a todos os canais ativos.
+              </span>
+
+              <div className="settings-row">
+                <span className="settings-label">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                  </svg>
+                  Modo de Transmissão Geral
+                </span>
+                
+                <select 
+                  className="settings-select"
+                  value={globalSettings.mode}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setGlobalSettings(prev => ({ ...prev, mode: val }));
+                    setStreamConfigs(prev => {
+                      const updated = {};
+                      Object.keys(prev).forEach(id => {
+                        updated[id] = { ...prev[id], mode: val };
                       });
-                      addLog("Preset global de Alta Qualidade (1080p) aplicado a todas as câmeras.", "success");
-                    }}
-                  >
-                    HD 1080p
-                  </button>
-                  <button 
-                    className={`preset-btn ${
-                      globalSettings.resolution === "720p" && globalSettings.fps === 15 && globalSettings.quality === 65 ? "active" : ""
-                    }`}
-                    onClick={() => {
-                      setGlobalSettings(prev => ({ ...prev, resolution: "720p", fps: 15, quality: 65 }));
-                      setStreamConfigs(prev => {
-                        const updated = {};
-                        Object.keys(prev).forEach(id => {
-                          updated[id] = { ...prev[id], resolution: "720p", fps: 15, quality: 65, bufsize: 2 };
-                        });
-                        return updated;
-                      });
-                      addLog("Preset global de Médio Desempenho (720p) aplicado a todas as câmeras.", "success");
-                    }}
-                  >
-                    Médio 720p
-                  </button>
-                  <button 
-                    className={`preset-btn ${
-                      globalSettings.resolution === "480p" && globalSettings.fps === 10 && globalSettings.quality === 50 ? "active" : ""
-                    }`}
-                    onClick={() => {
-                      setGlobalSettings(prev => ({ ...prev, resolution: "480p", fps: 10, quality: 50 }));
-                      setStreamConfigs(prev => {
-                        const updated = {};
-                        Object.keys(prev).forEach(id => {
-                          updated[id] = { ...prev[id], resolution: "480p", fps: 10, quality: 50, bufsize: 2 };
-                        });
-                        return updated;
-                      });
-                      addLog("Preset global de Economia (480p) aplicado a todas as câmeras.", "success");
-                    }}
-                  >
-                    Economia 480p
-                  </button>
-                  <button 
-                    className={`preset-btn ${
-                      globalSettings.resolution === "240p" && globalSettings.fps === 5 && globalSettings.quality === 30 ? "active" : ""
-                    }`}
-                    onClick={() => {
-                      setGlobalSettings(prev => ({ ...prev, resolution: "240p", fps: 5, quality: 30 }));
-                      setStreamConfigs(prev => {
-                        const updated = {};
-                        Object.keys(prev).forEach(id => {
-                          updated[id] = { ...prev[id], resolution: "240p", fps: 5, quality: 30, bufsize: 2 };
-                        });
-                        return updated;
-                      });
-                      addLog("Preset global de Baixo Consumo (240p) aplicado a todas as câmeras.", "success");
-                    }}
-                  >
-                    Mínimo 240p
-                  </button>
-                </div>
+                      return updated;
+                    });
+                    addLog(`Modo global de qualidade alterado para: ${val === "auto" ? "AUTO-ADAPTATIVO" : "MANUAL"}`, "info");
+                  }}
+                >
+                  <option value="auto">Auto (Adaptativo)</option>
+                  <option value="manual">Manual / Fixo</option>
+                </select>
               </div>
 
-              <div className="preset-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
-                <div className="settings-col">
-                  <label className="settings-label">Resolução Geral</label>
-                  <select 
-                    className="settings-select"
-                    value={globalSettings.resolution}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setGlobalSettings(prev => ({ ...prev, resolution: val }));
-                      setStreamConfigs(prev => {
-                        const updated = {};
-                        Object.keys(prev).forEach(id => {
-                          updated[id] = { ...prev[id], resolution: val };
-                        });
-                        return updated;
-                      });
-                      addLog(`Resolução global alterada para: ${val}`, "info");
-                    }}
-                  >
-                    <option value="1080p">1920x1080 (HD 1080p)</option>
-                    <option value="720p">1280x720 (Médio 720p)</option>
-                    <option value="480p">854x480 (Economia 480p)</option>
-                    <option value="240p">426x240 (Mínimo 240p)</option>
-                  </select>
-                </div>
-
-                <div className="settings-col">
-                  <label className="settings-label">Frame Rate Geral (FPS)</label>
-                  <select 
-                    className="settings-select"
-                    value={globalSettings.fps}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      setGlobalSettings(prev => ({ ...prev, fps: val }));
-                      setStreamConfigs(prev => {
-                        const updated = {};
-                        Object.keys(prev).forEach(id => {
-                          updated[id] = { ...prev[id], fps: val };
-                        });
-                        return updated;
-                      });
-                      addLog(`FPS global alterado para: ${val} FPS`, "info");
-                    }}
-                  >
-                    <option value="30">30 FPS (Fluidez Máxima)</option>
-                    <option value="20">20 FPS (Intermediário)</option>
-                    <option value="15">15 FPS (Padrão CFTV)</option>
-                    <option value="10">10 FPS (Econômico)</option>
-                    <option value="5">5 FPS (Mínimo)</option>
-                  </select>
-                </div>
+              <div className="settings-row" style={{ marginTop: "12px" }}>
+                <span className="settings-label">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "6px", verticalAlign: "middle" }}>
+                    <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                  </svg>
+                  Protocolo de Vídeo Geral
+                </span>
+                
+                <select 
+                  className="settings-select"
+                  value={streamingMode}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setStreamingMode(val);
+                    addLog(`Protocolo global de transmissão alterado para: ${val.toUpperCase()}`, "info");
+                  }}
+                >
+                  <option value="mp4">fMP4 (Túnel/Proxy)</option>
+                  <option value="mse">MSE (H.264 Local)</option>
+                  <option value="webrtc">WebRTC (Ultra-low)</option>
+                  <option value="mjpeg">MJPEG (Legacy)</option>
+                </select>
               </div>
 
-              <div className="preset-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginTop: "16px" }}>
-                <div className="settings-col">
-                  <div className="settings-row" style={{ justifyContent: "space-between" }}>
-                    <label className="settings-label">Qualidade Geral</label>
-                    <span className="settings-value">{globalSettings.quality}%</span>
+              {globalSettings.mode === "auto" ? (
+                <div style={{
+                  background: "rgba(6, 182, 212, 0.05)",
+                  border: "1px solid rgba(6, 182, 212, 0.15)",
+                  borderRadius: "8px",
+                  padding: "12px",
+                  color: "#94a3b8",
+                  lineHeight: "1.4",
+                  fontSize: "0.775rem",
+                  marginTop: "16px"
+                }}>
+                  <strong style={{ color: "#06b6d4" }}>Adaptação Automática Ativa (Global):</strong> Todas as câmeras gerenciam suas próprias qualidades dinamicamente com base em suas respectivas latências de rede e limites de banda local.
+                </div>
+              ) : (
+                <div style={{ animation: "fadeIn 0.2s", marginTop: "16px" }}>
+                  <div className="settings-col" style={{ marginBottom: "16px" }}>
+                    <span className="settings-label">Presets Globais Rápidos</span>
+                    <div className="preset-grid">
+                      <button 
+                        className={`preset-btn ${
+                          globalSettings.resolution === "1080p" && globalSettings.fps === 30 && globalSettings.quality === 85 ? "active" : ""
+                        }`}
+                        onClick={() => {
+                          setGlobalSettings(prev => ({ ...prev, resolution: "1080p", fps: 30, quality: 85 }));
+                          setStreamConfigs(prev => {
+                            const updated = {};
+                            Object.keys(prev).forEach(id => {
+                              updated[id] = { ...prev[id], resolution: "1080p", fps: 30, quality: 85, bufsize: 2 };
+                            });
+                            return updated;
+                          });
+                          addLog("Preset global de Alta Qualidade (1080p) aplicado a todas as câmeras.", "success");
+                        }}
+                      >
+                        HD 1080p
+                      </button>
+                      <button 
+                        className={`preset-btn ${
+                          globalSettings.resolution === "720p" && globalSettings.fps === 15 && globalSettings.quality === 65 ? "active" : ""
+                        }`}
+                        onClick={() => {
+                          setGlobalSettings(prev => ({ ...prev, resolution: "720p", fps: 15, quality: 65 }));
+                          setStreamConfigs(prev => {
+                            const updated = {};
+                            Object.keys(prev).forEach(id => {
+                              updated[id] = { ...prev[id], resolution: "720p", fps: 15, quality: 65, bufsize: 2 };
+                            });
+                            return updated;
+                          });
+                          addLog("Preset global de Médio Desempenho (720p) aplicado a todas as câmeras.", "success");
+                        }}
+                      >
+                        Médio 720p
+                      </button>
+                      <button 
+                        className={`preset-btn ${
+                          globalSettings.resolution === "480p" && globalSettings.fps === 10 && globalSettings.quality === 50 ? "active" : ""
+                        }`}
+                        onClick={() => {
+                          setGlobalSettings(prev => ({ ...prev, resolution: "480p", fps: 10, quality: 50 }));
+                          setStreamConfigs(prev => {
+                            const updated = {};
+                            Object.keys(prev).forEach(id => {
+                              updated[id] = { ...prev[id], resolution: "480p", fps: 10, quality: 50, bufsize: 2 };
+                            });
+                            return updated;
+                          });
+                          addLog("Preset global de Economia (480p) aplicado a todas as câmeras.", "success");
+                        }}
+                      >
+                        Economia 480p
+                      </button>
+                      <button 
+                        className={`preset-btn ${
+                          globalSettings.resolution === "240p" && globalSettings.fps === 5 && globalSettings.quality === 30 ? "active" : ""
+                        }`}
+                        onClick={() => {
+                          setGlobalSettings(prev => ({ ...prev, resolution: "240p", fps: 5, quality: 30 }));
+                          setStreamConfigs(prev => {
+                            const updated = {};
+                            Object.keys(prev).forEach(id => {
+                              updated[id] = { ...prev[id], resolution: "240p", fps: 5, quality: 30, bufsize: 2 };
+                            });
+                            return updated;
+                          });
+                          addLog("Preset global de Baixo Consumo (240p) aplicado a todas as câmeras.", "success");
+                        }}
+                      >
+                        Mínimo 240p
+                      </button>
+                    </div>
                   </div>
-                  <input 
-                    type="range" 
-                    min="10" 
-                    max="95" 
-                    value={globalSettings.quality}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      setGlobalSettings(prev => ({ ...prev, quality: val }));
-                      setStreamConfigs(prev => {
-                        const updated = {};
-                        Object.keys(prev).forEach(id => {
-                          updated[id] = { ...prev[id], quality: val };
-                        });
-                        return updated;
-                      });
-                    }}
-                    className="settings-slider"
-                  />
-                </div>
 
-                <div className="settings-col">
-                  <div className="settings-row" style={{ justifyContent: "space-between" }}>
-                    <label className="settings-label">Buffer Geral</label>
-                    <span className="settings-value">{globalSettings.bufsize} frames</span>
+                  <div className="preset-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+                    <div className="settings-col">
+                      <label className="settings-label">Resolução Geral</label>
+                      <select 
+                        className="settings-select"
+                        value={globalSettings.resolution}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setGlobalSettings(prev => ({ ...prev, resolution: val }));
+                          setStreamConfigs(prev => {
+                            const updated = {};
+                            Object.keys(prev).forEach(id => {
+                              updated[id] = { ...prev[id], resolution: val };
+                            });
+                            return updated;
+                          });
+                          addLog(`Resolução global alterada para: ${val}`, "info");
+                        }}
+                      >
+                        <option value="1080p">1920x1080 (HD 1080p)</option>
+                        <option value="720p">1280x720 (Médio 720p)</option>
+                        <option value="480p">854x480 (Economia 480p)</option>
+                        <option value="240p">426x240 (Mínimo 240p)</option>
+                      </select>
+                    </div>
+
+                    <div className="settings-col">
+                      <label className="settings-label">Frame Rate Geral (FPS)</label>
+                      <select 
+                        className="settings-select"
+                        value={globalSettings.fps}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setGlobalSettings(prev => ({ ...prev, fps: val }));
+                          setStreamConfigs(prev => {
+                            const updated = {};
+                            Object.keys(prev).forEach(id => {
+                              updated[id] = { ...prev[id], fps: val };
+                            });
+                            return updated;
+                          });
+                          addLog(`FPS global alterado para: ${val} FPS`, "info");
+                        }}
+                      >
+                        <option value="30">30 FPS (Fluidez Máxima)</option>
+                        <option value="20">20 FPS (Intermediário)</option>
+                        <option value="15">15 FPS (Padrão CFTV)</option>
+                        <option value="10">10 FPS (Econômico)</option>
+                        <option value="5">5 FPS (Mínimo)</option>
+                      </select>
+                    </div>
                   </div>
-                  <input 
-                    type="range" 
-                    min="1" 
-                    max="10" 
-                    value={globalSettings.bufsize}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      setGlobalSettings(prev => ({ ...prev, bufsize: val }));
-                      setStreamConfigs(prev => {
-                        const updated = {};
-                        Object.keys(prev).forEach(id => {
-                          updated[id] = { ...prev[id], bufsize: val };
-                        });
-                        return updated;
-                      });
-                    }}
-                    className="settings-slider"
-                  />
+
+                  <div className="preset-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginTop: "16px" }}>
+                    <div className="settings-col">
+                      <div className="settings-row" style={{ justifyContent: "space-between" }}>
+                        <label className="settings-label">Qualidade Geral</label>
+                        <span className="settings-value">{globalSettings.quality}%</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="10" 
+                        max="95" 
+                        value={globalSettings.quality}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setGlobalSettings(prev => ({ ...prev, quality: val }));
+                          setStreamConfigs(prev => {
+                            const updated = {};
+                            Object.keys(prev).forEach(id => {
+                              updated[id] = { ...prev[id], quality: val };
+                            });
+                            return updated;
+                          });
+                        }}
+                        className="settings-slider"
+                      />
+                    </div>
+
+                    <div className="settings-col">
+                      <div className="settings-row" style={{ justifyContent: "space-between" }}>
+                        <label className="settings-label">Buffer Geral</label>
+                        <span className="settings-value">{globalSettings.bufsize} frames</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="1" 
+                        max="10" 
+                        value={globalSettings.bufsize}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setGlobalSettings(prev => ({ ...prev, bufsize: val }));
+                          setStreamConfigs(prev => {
+                            const updated = {};
+                            Object.keys(prev).forEach(id => {
+                              updated[id] = { ...prev[id], bufsize: val };
+                            });
+                            return updated;
+                          });
+                        }}
+                        className="settings-slider"
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       )}
 
